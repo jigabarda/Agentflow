@@ -1,4 +1,5 @@
 import { createAgentHandler, type AgentHandlerDeps } from "./agent";
+import { createBoardHandlers, type BoardHandlerDeps } from "./board/index";
 import { echo } from "./echo";
 import { createGitHubHandlers, type GitHubHandlerDeps } from "./github/index";
 import { manualTrigger } from "./manualTrigger";
@@ -16,6 +17,8 @@ export interface HandlerDeps {
   agent?: AgentHandlerDeps;
   /** Omit to build a registry with no GitHub nodes — used by engine tests. */
   github?: GitHubHandlerDeps;
+  /** Omit to build a registry with no board nodes — used by engine tests. */
+  board?: BoardHandlerDeps;
 }
 
 export function createHandlerRegistry(deps: HandlerDeps = {}): Map<string, NodeHandler> {
@@ -29,10 +32,15 @@ export function createHandlerRegistry(deps: HandlerDeps = {}): Map<string, NodeH
     handlers.push(...createGitHubHandlers(deps.github));
   }
 
+  if (deps.board) {
+    handlers.push(...createBoardHandlers(deps.board));
+  }
+
   return new Map(handlers.map((handler) => [handler.type, handler]));
 }
 
 export type { NodeHandler, NodeInfo } from "./types";
-export { NodeFailure } from "./types";
+export { NodeFailure, RunPaused } from "./types";
 export type { AgentHandlerDeps } from "./agent";
 export type { GitHubHandlerDeps } from "./github/index";
+export type { BoardHandlerDeps } from "./board/index";

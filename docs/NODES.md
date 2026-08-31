@@ -97,7 +97,8 @@ These are what make the board *management*, not just a viewer: agents write prog
 
 ### `update-task` — 🟢
 Write back to the card mid-run: move it, set fields, post to its timeline.
-- **Config:** `{ taskId?: string, columnId?: string, priority?: string, addLabels?: string[], comment?: string, setFields?: { prNumber?, prUrl?, estimate? } }` — all interpolatable; `taskId` defaults to the run's own card.
+- **Config:** `{ taskId?: string, columnId?: string, priority?: string, addLabels?: string[], comment?: string, prNumber?, prUrl? }` — all interpolatable; `taskId` defaults to the run's own card.
+- `addLabels` **accumulates**: an agent adding `needs-review` never drops the labels a human put on the card.
 - **Output:** `{ task }` (the updated card).
 - Typical use: after `open-pr`, `{ columnId: "col_review", comment: "PR {{ nodes.openPr.output.prUrl }} ready" }`.
 
@@ -109,9 +110,11 @@ Create new card(s) — the decomposition node. An agent that plans a large task 
 
 ### `require-approval` — 🟢 (gate)
 Parks the run and hands the decision to you on the board.
-- **Config:** `{ columnId: string, message: string, showDiff?: boolean, timeoutHours?: number }`.
+- **Config:** `{ columnId?: string, message: string, showDiff?: boolean, timeoutHours?: number }` — a blank `columnId` parks the card in the board's first `waiting` column.
 - **Output:** `{ approved: boolean, comment?: string, decidedAt }`; on reject the run fails with your comment as the reason.
 - Sets the run to `awaiting_approval`, moves the card to a `waiting` column, and surfaces **Approve / Reject** on the card face. **Put this before anything outward or destructive** (push to main, merge, deploy) — see [SECURITY.md](SECURITY.md).
+- **Waiting costs nothing.** The node throws a `RunPaused` signal: no thread is held and nothing polls. Approving re-queues the run, and the runner rebuilds its context from the steps that already succeeded, so **no node — and no agent — runs twice**. The run's workspace is kept while parked (the clone and the agent's edits are still there) and removed only when the run ends.
+- A rejection is not a separate path: the run resumes, the gate finds the verdict, and it fails with your comment as the reason — so the column's `onRunFailed` rule still applies.
 
 ---
 

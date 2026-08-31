@@ -218,6 +218,7 @@ model Run {
 
   steps      RunStep[]
   logs       LogEntry[]
+  approvals  RunApproval[]
   tokensUsed Int        @default(0)
   error      String?
 
@@ -231,6 +232,31 @@ model Run {
   @@index([status])
   @@index([taskId])
   @@index([pipelineId])
+}
+
+/// A human gate inside a run: the `require-approval` node parks here and waits.
+///
+/// The decision lives in its own row rather than on the Run, because a pipeline
+/// may gate more than once and each gate needs its own verdict and comment.
+model RunApproval {
+  id     String @id @default(cuid())
+  runId  String
+  /// The `require-approval` node that is waiting.
+  nodeId String
+
+  /// pending | approved | rejected
+  state     String  @default("pending")
+  /// What the user said when approving or rejecting. A rejection uses it as the run's error.
+  comment   String?
+  decidedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  /// One verdict per gate per run — an approve is idempotent.
+  @@unique([runId, nodeId])
+  @@index([state])
 }
 
 model RunStep {

@@ -10,15 +10,19 @@ import { PrismaClient } from "@prisma/client";
 import { createRunnerRegistry } from "./agent/registry";
 import type { AgentCredential } from "./agent/AgentRunner";
 import type { AgentProfileRecord } from "./agent/config";
+import { PrismaBoardStore } from "./board/BoardStore";
+import { createBoardReconciler } from "./engine/board";
 import { runNextQueued } from "./engine/runner";
 import { createLazyGitHub } from "./github/lazy";
 import { createHandlerRegistry } from "./handlers/index";
 import { PrismaRunStore } from "./store";
+import { openRunWorkspace } from "./workspace/index";
 
 const POLL_INTERVAL_MS = Number(process.env.WORKER_POLL_MS ?? 1000);
 
 const prisma = new PrismaClient();
 const store = new PrismaRunStore(prisma);
+const board = new PrismaBoardStore(prisma);
 
 /** Saved Agent Profiles, for nodes that reference one instead of inline config. */
 async function loadProfiles(): Promise<ReadonlyMap<string, AgentProfileRecord>> {
@@ -98,6 +102,33 @@ const handlers = createHandlerRegistry({
       });
     },
   },
+  board: {
+    board,
+    getApproval: async (runId, nodeId) => {
+      const row = await prisma.runApproval.findUnique({
+        where: { runId_nodeId: { runId, nodeId } },
+        select: { state: true, comment: true },
+      });
+      return row
+        ? { state: row.state as "pending" | "approved" | "rejected", comment: row.comment }
+        : null;
+    },
+    // Opening a gate is idempotent: a resumed run re-enters the same node.
+    openApproval: async (runId, nodeId) => {
+      await prisma.runApproval.upsert({
+        where: { runId_nodeId: { runId, nodeId } },
+        create: { runId, nodeId, state: "pending" },
+        update: {},
+      });
+    },
+    log: async (runId, entry) => {
+      await store.appendLog(runId, {
+        level: entry.level,
+        message: entry.message,
+        nodeId: entry.nodeId,
+      });
+    },
+  },
   github: {
     client: github.client,
     git: github.git,
@@ -122,7 +153,15 @@ async function loop(): Promise<void> {
     try {
       // Drain the queue, then wait. One run at a time keeps ordering obvious
       // and the single-user machine responsive.
-      const outcome = await runNextQueued({ store, handlers });
+      const outcome = await runNextQueued({
+        store,
+        handlers,
+        reconciler: createBoardReconciler(board),
+        // A run parked at a gate keeps its workspace; only a finished run's is
+        // removed, and the path is derived from the run id so a resume finds it.
+        workspaceDir: (runId) => openRunWorkspace(runId).dir,
+        cleanupWorkspace: (runId) => openRunWorkspace(runId).cleanup(),
+      });
       if (outcome) {
         console.log(`run ${outcome.status}${outcome.error ? `: ${outcome.error}` : ""}`);
         continue;

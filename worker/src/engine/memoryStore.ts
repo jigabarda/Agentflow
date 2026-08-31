@@ -1,4 +1,5 @@
 import type {
+  CompletedStep,
   LoadedPipeline,
   LogInput,
   QueuedRun,
@@ -75,6 +76,22 @@ export class MemoryRunStore implements RunStore {
 
   async appendLog(runId: string, entry: LogInput): Promise<void> {
     this.logs.push({ runId, ...entry });
+  }
+
+  async loadCompletedSteps(runId: string): Promise<CompletedStep[]> {
+    return this.steps
+      .filter((step) => step.runId === runId && step.status === "succeeded")
+      .map((step) => ({ nodeId: step.nodeId, output: step.output }));
+  }
+
+  async findOpenStep(runId: string, nodeId: string): Promise<{ id: string } | null> {
+    const step = this.steps.find(
+      (item) =>
+        item.runId === runId &&
+        item.nodeId === nodeId &&
+        (item.status === "pending" || item.status === "running"),
+    );
+    return step ? { id: step.id } : null;
   }
 
   /** The node ids that actually ran, in the order they ran. */

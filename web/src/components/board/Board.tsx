@@ -14,6 +14,7 @@ import {
 import { Column } from "./Column";
 import { TaskDrawer } from "./TaskDrawer";
 import { useBoardStore } from "./boardStore";
+import { useRunStream } from "./useRunStream";
 import {
   EMPTY_FILTERS,
   filtersFromQuery,
@@ -45,6 +46,12 @@ export function Board({ board, tasks }: { board: BoardType; tasks: Task[] }) {
   const selectTask = useBoardStore((state) => state.selectTask);
   const openDrawer = useBoardStore((state) => state.openDrawer);
   const dismissMessages = useBoardStore((state) => state.dismissMessages);
+  const runs = useBoardStore((state) => state.runs);
+  const setRuns = useBoardStore((state) => state.setRuns);
+  const decide = useBoardStore((state) => state.decide);
+
+  // Live run state, pushed. The card face reads it; nothing here polls.
+  useRunStream(board.id, setRuns);
 
   const filterInputRef = useRef<HTMLInputElement>(null);
   // A ref, not state: "have we hydrated yet" must not itself cause a render.
@@ -274,9 +281,11 @@ export function Board({ board, tasks }: { board: BoardType; tasks: Task[] }) {
               tasks={visibleByColumn.get(column.id) ?? []}
               blockedTaskIds={blockedTaskIds}
               selectedTaskId={selectedTaskId}
+              runs={runs}
               onQuickAdd={(title) => void createTask(column.id, title)}
               onOpenTask={(taskId) => void openDrawer(taskId)}
               onSelectTask={selectTask}
+              onDecide={(runId, decision) => void decide(runId, decision)}
             />
           ))}
         </main>

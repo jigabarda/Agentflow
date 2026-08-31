@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { BoardColumn, Task } from "@agentflow/core";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import type { RunSummary } from "@/data/runSummaries";
 import { TaskCard } from "./TaskCard";
 
 export function Column({
@@ -11,17 +12,21 @@ export function Column({
   tasks,
   blockedTaskIds,
   selectedTaskId,
+  runs,
   onQuickAdd,
   onOpenTask,
   onSelectTask,
+  onDecide,
 }: {
   column: BoardColumn;
   tasks: Task[];
   blockedTaskIds: Set<string>;
   selectedTaskId: string | null;
+  runs: Record<string, RunSummary>;
   onQuickAdd: (title: string) => void;
   onOpenTask: (taskId: string) => void;
   onSelectTask: (taskId: string) => void;
+  onDecide: (runId: string, decision: "approve" | "reject") => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const [draft, setDraft] = useState("");
@@ -101,8 +106,10 @@ export function Column({
               task={task}
               blocked={blockedTaskIds.has(task.id)}
               selected={selectedTaskId === task.id}
+              {...(runs[task.id] ? { run: runs[task.id] } : {})}
               onOpen={() => onOpenTask(task.id)}
               onSelect={() => onSelectTask(task.id)}
+              onDecide={onDecide}
             />
           ))}
         </SortableContext>
