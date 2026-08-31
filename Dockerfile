@@ -20,8 +20,9 @@ RUN npm ci
 FROM node:22-alpine AS build
 WORKDIR /app
 
+# npm workspaces hoist to the root, and the per-workspace directories hold only
+# the symlinks back — which live inside this same tree.
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/web/node_modules ./web/node_modules
 COPY . .
 
 # The Prisma client is generated code; it has to exist before anything compiles.
