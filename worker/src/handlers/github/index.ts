@@ -1,5 +1,6 @@
 import type { NodeHandler } from "../types";
 import type { GitHubHandlerDeps } from "./deps";
+import { createMergePrHandler } from "./mergePr";
 import {
   createCloneRepoHandler,
   createCommitChangesHandler,
@@ -25,6 +26,7 @@ export function createGitHubHandlers(deps: GitHubHandlerDeps): NodeHandler[] {
     createCommitChangesHandler(deps),
     createOpenPrHandler(deps),
     createWaitForChecksHandler(deps),
+    createMergePrHandler(deps),
   ];
 
   return handlers as unknown as NodeHandler[];
@@ -32,3 +34,4 @@ export function createGitHubHandlers(deps: GitHubHandlerDeps): NodeHandler[] {
 
 export type { GitHubHandlerDeps } from "./deps";
 export * from "./nodes";
+export * from "./mergePr";

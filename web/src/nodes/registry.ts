@@ -127,10 +127,15 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
       secretRefs: z
         .array(z.string())
         .default([])
-        .describe("Secret names injected at call time, never logged"),
+        .describe("Secret names to inject. Write $NAME where each one goes; never logged"),
+      timeoutSec: z.number().int().positive().default(30),
+      failOnErrorStatus: z
+        .boolean()
+        .default(true)
+        .describe("Fail the run on a 4xx or 5xx rather than carrying on"),
     }),
     inputs: [],
-    outputs: ["status", "headers", "body"],
+    outputs: ["status", "headers", "body", "ok"],
   },
 
   // ─────────────────────────────── agent ──────────────────────────────
@@ -311,6 +316,14 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
       repo: interpolatable("owner/name"),
       prNumber: interpolatable("PR number"),
       method: z.enum(["merge", "squash", "rebase"]).default("squash"),
+      requiredChecks: z
+        .array(z.string())
+        .default([])
+        .describe("Only these gate the merge. Blank = every check must pass"),
+      allowNoChecks: z
+        .boolean()
+        .default(false)
+        .describe("Merge a repo that reports no checks at all. Nothing is verified"),
     }),
     inputs: [],
     outputs: ["merged", "mergeSha"],
@@ -324,11 +337,17 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
     phase: "later",
     description: "Triggers a Vercel deployment.",
     configSchema: z.object({
-      projectId: z.string().optional(),
+      project: interpolatable("Project name or id").optional(),
       target: z.enum(["preview", "production"]).default("preview"),
+      deployHookUrl: z
+        .string()
+        .optional()
+        .describe("A deploy hook needs no token. The URL is itself a secret"),
+      teamId: z.string().optional(),
+      tokenRef: z.string().default("VERCEL_TOKEN").describe("Secret holding the API token"),
     }),
     inputs: [],
-    outputs: ["deploymentUrl", "state"],
+    outputs: ["deploymentUrl", "state", "ready"],
   },
   {
     id: "deploy-netlify",
@@ -337,11 +356,16 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
     phase: "later",
     description: "Triggers a Netlify deploy.",
     configSchema: z.object({
-      siteId: z.string(),
+      siteId: interpolatable("Site id").optional(),
       prod: z.boolean().default(false),
+      buildHookUrl: z
+        .string()
+        .optional()
+        .describe("A build hook needs no token. The URL is itself a secret"),
+      tokenRef: z.string().default("NETLIFY_TOKEN").describe("Secret holding the API token"),
     }),
     inputs: [],
-    outputs: ["deployUrl", "state"],
+    outputs: ["deploymentUrl", "state", "ready"],
   },
 ] as const;
 

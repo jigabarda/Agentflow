@@ -1,6 +1,8 @@
 import { createAgentHandler, type AgentHandlerDeps } from "./agent";
 import { createBoardHandlers, type BoardHandlerDeps } from "./board/index";
 import { createConditionHandler, type ConditionDeps } from "./condition";
+import { createDeployNetlifyHandler, createDeployVercelHandler, type DeployDeps } from "./deploy";
+import { createHttpRequestHandler, type HttpRequestDeps } from "./httpRequest";
 import { echo } from "./echo";
 import { createGitHubHandlers, type GitHubHandlerDeps } from "./github/index";
 import { manualTrigger } from "./manualTrigger";
@@ -23,6 +25,10 @@ export interface HandlerDeps {
   board?: BoardHandlerDeps;
   /** Routing between branches. Omit and a pipeline cannot use `condition`. */
   condition?: ConditionDeps;
+  /** The generic HTTP escape hatch. */
+  http?: HttpRequestDeps;
+  /** Deploy targets. Same deps for both providers. */
+  deploy?: DeployDeps;
 }
 
 export function createHandlerRegistry(deps: HandlerDeps = {}): Map<string, NodeHandler> {
@@ -48,6 +54,17 @@ export function createHandlerRegistry(deps: HandlerDeps = {}): Map<string, NodeH
     handlers.push(createConditionHandler(deps.condition) as NodeHandler);
   }
 
+  if (deps.http) {
+    handlers.push(createHttpRequestHandler(deps.http) as unknown as NodeHandler);
+  }
+
+  if (deps.deploy) {
+    handlers.push(
+      createDeployVercelHandler(deps.deploy) as unknown as NodeHandler,
+      createDeployNetlifyHandler(deps.deploy) as unknown as NodeHandler,
+    );
+  }
+
   return new Map(handlers.map((handler) => [handler.type, handler]));
 }
 
@@ -57,3 +74,5 @@ export type { AgentHandlerDeps } from "./agent";
 export type { GitHubHandlerDeps } from "./github/index";
 export type { BoardHandlerDeps } from "./board/index";
 export type { ConditionDeps } from "./condition";
+export type { HttpRequestDeps } from "./httpRequest";
+export type { DeployDeps } from "./deploy";
