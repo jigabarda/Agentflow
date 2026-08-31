@@ -12,6 +12,7 @@ import type { AgentCredential } from "./agent/AgentRunner";
 import type { AgentProfileRecord } from "./agent/config";
 import { PrismaBoardStore } from "./board/BoardStore";
 import { createBoardReconciler } from "./engine/board";
+import { recoverInterruptedRuns } from "./engine/retry";
 import { runNextQueued } from "./engine/runner";
 import { createLazyGitHub } from "./github/lazy";
 import { FetchHttpClient } from "./http/HttpClient";
@@ -254,6 +255,11 @@ async function loop(): Promise<void> {
 
 async function main(): Promise<void> {
   await prisma.$queryRaw`SELECT 1`;
+
+  // A `running` row with no worker behind it died with the last process.
+  // Requeue it before draining, so a restart picks up where it left off.
+  await recoverInterruptedRuns(store, (message) => console.log(`[recovery] ${message}`));
+
   console.log("worker ready");
 
   const shutdown = (signal: NodeJS.Signals) => {

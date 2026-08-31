@@ -2,7 +2,9 @@ import {
   Flow,
   FlowLoopExceeded,
   branchOf,
+  checkCost,
   interpolateConfig,
+  tokensFrom,
   topologicalOrder,
 } from "@agentflow/core";
 import type { RunContext, RunStatus } from "@agentflow/core";
@@ -83,6 +85,9 @@ export async function executeRun(deps: RunnerDeps, run: QueuedRun): Promise<RunO
     // changed some other way. Fail the run cleanly rather than loop forever.
     return fail(deps, run, now, describeError(error), {});
   }
+
+  // Carried across a pause: a resumed run must not get a fresh budget.
+  let tokensUsed = await store.tokensSpent(run.id);
 
   // Anything this run already finished, from a pass that ended at a gate.
   const completed = await store.loadCompletedSteps(run.id);
@@ -169,12 +174,29 @@ export async function executeRun(deps: RunnerDeps, run: QueuedRun): Promise<RunO
 
       context.nodes[node.id] = { output };
       await store.setStepStatus(step.id, { status: "succeeded", output, endedAt: now() });
+
+      // Spend is recorded as it happens, so a run that dies mid-way still shows
+      // what it cost.
+      const spent = tokensFrom(output);
+      if (spent > 0) {
+        tokensUsed += spent;
+        await store.setRunStatus(run.id, { status: "running", tokensUsed });
+      }
+
       await store.appendLog(run.id, {
         level: "info",
         message: `${node.label || node.id} finished.`,
         nodeId: node.id,
       });
       await reconciler?.onStepSucceeded(card, report);
+
+      // The cost guard. Checked AFTER the node that spent, because the cheapest
+      // way to stop a runaway is to notice the moment it passes the line.
+      const cost = checkCost(tokensUsed, pipeline.maxTokensPerRun);
+      if (cost.exceeded) {
+        await store.appendLog(run.id, { level: "error", message: cost.reason, nodeId: node.id });
+        return fail(deps, run, now, cost.reason, outputsOf(context), node.id);
+      }
 
       // The node may have chosen a branch; the flow prunes the rest.
       try {

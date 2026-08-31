@@ -19,8 +19,9 @@ function pipeline(
   nodes: PipelineNode[],
   edges: PipelineEdge[] = [],
   vars: Record<string, string> = {},
+  maxTokensPerRun: number | null = null,
 ): LoadedPipeline {
-  return { id: "pipe_1", name: "Test pipeline", nodes, edges, vars };
+  return { id: "pipe_1", name: "Test pipeline", nodes, edges, vars, maxTokensPerRun };
 }
 
 const run: QueuedRun = { id: "run_1", pipelineId: "pipe_1", taskId: null, trigger: {} };

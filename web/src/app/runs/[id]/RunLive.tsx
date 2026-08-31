@@ -53,16 +53,37 @@ const REFRESH_MS = 1000;
 export function RunLive({
   runId,
   live,
+  canRetry,
   steps,
   logs,
 }: {
   runId: string;
   live: boolean;
+  /** Only a failed run can be retried. */
+  canRetry: boolean;
   steps: StepView[];
   logs: LogView[];
 }) {
   const router = useRouter();
   const [showLogs, setShowLogs] = useState(true);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  async function retry() {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const response = await fetch(`/api/runs/${runId}/retry`, { method: "POST" });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        setRetryError(payload.error ?? "That did not work.");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   useEffect(() => {
     if (!live) return;
@@ -73,6 +94,25 @@ export function RunLive({
 
   return (
     <>
+      {canRetry && (
+        <section className="mb-6">
+          <button
+            type="button"
+            data-testid="run-retry"
+            disabled={retrying}
+            onClick={() => void retry()}
+            className="rounded bg-sky-600 px-3 py-1 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+          >
+            Retry from the failed step
+          </button>
+          <p className="mt-1 text-[11px] text-neutral-500">
+            Everything that already succeeded is kept, so this re-runs the step that broke and
+            nothing before it.
+          </p>
+          {retryError && <p className="mt-1 text-[11px] text-red-600">{retryError}</p>}
+        </section>
+      )}
+
       <section className="mb-6">
         <h2 className="mb-2 text-xs font-medium text-neutral-600 dark:text-neutral-400">Steps</h2>
         <ol data-testid="run-steps" className="space-y-1">

@@ -19,7 +19,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
     where: { id },
     include: {
       steps: { orderBy: { startedAt: "asc" } },
-      pipeline: { select: { id: true, name: true } },
+      pipeline: { select: { id: true, name: true, maxTokensPerRun: true } },
       task: { select: { id: true, title: true, boardId: true, prUrl: true, prNumber: true } },
     },
   });
@@ -32,6 +32,10 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       <nav className="mb-4 text-xs text-neutral-500">
         <Link href={run.task ? `/?board=${run.task.boardId}` : "/"} className="hover:underline">
           ← Board
+        </Link>
+        {" · "}
+        <Link href="/runs" className="hover:underline">
+          All runs
         </Link>
         {run.task && (
           <>
@@ -55,6 +59,12 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
         >
           open pipeline
         </Link>
+        <span data-testid="run-tokens" className="text-xs text-neutral-500">
+          {run.tokensUsed.toLocaleString()} tokens
+          {run.pipeline.maxTokensPerRun
+            ? ` of ${run.pipeline.maxTokensPerRun.toLocaleString()}`
+            : ""}
+        </span>
         {run.task?.prUrl && (
           <a
             data-testid="run-pr-link"
@@ -79,6 +89,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
       {/* Steps and logs refresh themselves while the run is still moving. */}
       <RunLive
+        canRetry={run.status === "failed"}
         runId={run.id}
         live={run.status === "running" || run.status === "queued"}
         steps={run.steps.map((step) => ({
