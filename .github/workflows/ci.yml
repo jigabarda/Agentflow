@@ -42,6 +42,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Next generates the route types (LayoutProps, PageProps …) that
+      # web/src/app refers to. A clean checkout has never built, so they do not
+      # exist yet — `typegen` writes them in seconds without a full build.
+      - name: Generate Next route types
+        run: npx next typegen
+        working-directory: web
+
       - name: Typecheck
         run: npm run typecheck
 
