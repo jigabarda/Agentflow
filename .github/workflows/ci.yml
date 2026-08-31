@@ -9,20 +9,51 @@ on:
 
 # Mirrors the local commands in PLAN.md. Live agent/GitHub smoke tests are NOT
 # part of PR CI — they need real credentials and spend tokens (see docs/TESTING.md).
+#
+# Four independent checks rather than one. They run in parallel, so the whole
+# suite finishes in about as long as its slowest job, and a red mark on the PR
+# names what actually broke instead of just "verify".
+env:
+  DATABASE_URL: "file:./ci.db"
+  # A throwaway 32-byte key (AES-256 accepts no other length), used only to
+  # encrypt data this CI run creates and then discards. It guards nothing
+  # real, which is why it can live in the open — never reuse it anywhere.
+  SECRETS_ENC_KEY: "Ay9YSOUBzOL+pnINDtGp38XnUhqYQ4l6uZ+bqTwonro="
+
 jobs:
-  verify:
+  lint:
+    name: lint
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: "file:./ci.db"
-      # A throwaway 32-byte key (AES-256 accepts no other length), used only to
-      # encrypt data this CI run creates and then discards. It guards nothing
-      # real, which is why it can live in the open — never reuse it anywhere.
-      SECRETS_ENC_KEY: "Ay9YSOUBzOL+pnINDtGp38XnUhqYQ4l6uZ+bqTwonro="
-
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
 
-      - uses: actions/setup-node@v4
+      - name: Install
+        run: npm ci
+
+      # The generated Prisma client is a type dependency, so it has to exist
+      # before anything type-aware runs.
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Format check
+        run: npm run format:check
+
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -36,16 +67,65 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Format check
-        run: npm run format:check
-
-      - name: Unit tests
+      - name: Unit and integration tests
         run: npm test
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      # The board is a server component that reads the database, so the build
+      # needs a schema to talk to.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
 
       - name: Build web
         run: npm --workspace web run build
 
-      # Playwright is added to CI in Phase 2, when there is a UI worth driving.
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      # Chromium only — the project targets one browser (playwright.config.ts).
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: web
+
+      # Playwright starts the dev server itself and waits for it.
+      - name: End-to-end tests
+        run: npm run e2e
+
+      - name: Upload the report when a run fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
