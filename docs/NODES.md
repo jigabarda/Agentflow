@@ -62,7 +62,7 @@ A generic call to **any API/endpoint** — this is the node that satisfies "set 
 ## Agent node
 
 ### `agent` — 🟢
-Runs an AI agent (Claude Agent SDK in the MVP) in the run's isolated workspace. **The user chooses the model/agent for this node** — either by referencing a reusable **Agent Profile** or configuring it inline. See [AGENTS.md](AGENTS.md) → *Configurable agents & per-node model selection*.
+Runs an AI agent — on whichever provider the node names — in the run's isolated workspace. **The user chooses the model/agent for this node** — either by referencing a reusable **Agent Profile** or configuring it inline. See [AGENTS.md](AGENTS.md) → *Configurable agents & per-node model selection*.
 - **Config (either reference a profile, or inline):**
   ```ts
   {
@@ -127,13 +127,17 @@ Clone the target repo into the run workspace at a base branch. **Config:** `{ re
 Create + check out a branch (typically named from the issue). **Config:** `{ repo, branchName, fromRef?: string }`. **Output:** `{ branch }`.
 
 ### `commit-changes` — 🟢
-Commit the agent's workspace diff and push the branch. **Config:** `{ repo, branch, message }`. **Output:** `{ commitSha, pushed: boolean }`.
+Commit the agent's workspace diff and push the branch. **Config:** `{ repo, branch, message }`. **Output:** `{ commitSha, pushed: boolean }`. **Fails when there is nothing to commit** — an agent that changed no files should stop the run, not push an empty branch and open a diff-less PR.
 
 ### `open-pr` — 🟢
 Open a pull request. **Config:** `{ repo, head, base, title, body }` (interpolatable, e.g. body from the planner). **Output:** `{ prNumber, prUrl }`.
 
 ### `wait-for-checks` — 🔵
-Poll GitHub Actions / check-runs for the PR's head SHA until complete. **Config:** `{ repo, ref, requiredChecks?: string[], timeoutSec }`. **Output:** `{ conclusion: "success"|"failure"|"timed_out", checks }`. This is how agents "run tests" — execution is delegated to **GitHub Actions**, not a sandbox we host.
+Poll GitHub Actions / check-runs for the PR's head SHA until complete. **Config:** `{ repo, ref, requiredChecks?: string[], timeoutSec }`. **Output:** `{ conclusion: "success"|"failure"|"timed_out"|"no_checks", checks }`. This is how agents "run tests" — execution is delegated to **GitHub Actions**, not a sandbox we host.
+
+- `no_checks` means the repo reported **no check runs at all** — it has no CI workflow, so nothing ran. It is reported as its own outcome, with a warning in the run log, rather than as `success`: a gate that proves nothing must never look like a gate that passed.
+- With `requiredChecks` set, only those checks count, and a required check GitHub has not reported yet keeps the node **pending** — "not started" is not "passed". Blank means every check must pass.
+- Named required checks that never appear will hold until `timeoutSec`, then conclude `timed_out`.
 
 ### `merge-pr` — 🔵 (gated)
 Merge a PR **only if** required checks are green. **Config:** `{ repo, prNumber, method: "merge"|"squash"|"rebase" }`. **Output:** `{ merged, mergeSha }`. Destructive/outward → requires a passing gate ([SECURITY.md](SECURITY.md)).

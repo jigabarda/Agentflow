@@ -84,8 +84,12 @@ export function createAgentHandler(
         },
         {
           onLog: (level, message) => {
-            // Fire-and-forget: a log write must never stall the agent.
-            void deps.log(context.runId, { level, message, nodeId });
+            // Fire-and-forget: a log write must never stall the agent — and a
+            // failed one must never take down the worker as an unhandled
+            // rejection. Losing a log line is the acceptable outcome here.
+            void deps.log(context.runId, { level, message, nodeId }).catch((error: unknown) => {
+              console.error(`could not write a log line for run ${context.runId}:`, error);
+            });
           },
         },
       );

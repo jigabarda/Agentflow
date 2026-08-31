@@ -50,7 +50,7 @@ AgentFlow/
         │   ├── agent.ts
         │   ├── board/        # createTask, updateTask, requireApproval
         │   └── github/       # readIssue, cloneRepo, createBranch, commit, openPr, waitForChecks, mergePr
-        ├── agent/            # AgentRunner interface (real = Claude Agent SDK; test = mock)
+        ├── agent/            # AgentRunner interface (one runner per provider; test = mock)
         ├── github/           # GitHubClient interface (real = Octokit; test = mock)
         └── workspace/        # per-run isolated temp dirs
 ```
@@ -62,7 +62,7 @@ AgentFlow/
 1. **`packages/core` is pure** — types, Zod schemas, graph validation, interpolation, payload mappers. No React, no Prisma, no network, no `Date.now()`/`Math.random()` in tested paths (inject them). Both `web` and `worker` import it; it imports neither.
 2. **Only `web/src/data/**` touches the DB from the web side.** Route handlers and components call repositories, never Prisma directly.
 3. **The worker owns execution.** The web app *enqueues* runs and *reads* their state; it never runs agents in a request handler.
-4. **External systems live behind interfaces.** `AgentRunner` (Claude Agent SDK) and `GitHubClient` (Octokit) are interfaces so tests inject mocks — no tokens, no network in unit tests.
+4. **External systems live behind interfaces.** `AgentRunner` (one implementation per provider) and `GitHubClient` (Octokit) are interfaces so tests inject mocks — no tokens, no network in unit tests.
 5. **Node handlers are the extension point.** A node type = `{ id, config schema, handler }`. The editor's node registry and the worker's handler registry are keyed by the **same node-type id** (see [NODES.md](NODES.md)).
 6. **The board never executes anything itself.** Web-side board actions (drag, ▶ Run now, approve) only write DB rows — a `Task` move, a `queued` `Run`, an approval flag. The worker is the only thing that runs pipelines and the only thing that *auto*-moves cards. See [BOARD.md](BOARD.md).
 

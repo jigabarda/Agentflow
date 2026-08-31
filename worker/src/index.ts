@@ -11,6 +11,7 @@ import { createRunnerRegistry } from "./agent/registry";
 import type { AgentCredential } from "./agent/AgentRunner";
 import type { AgentProfileRecord } from "./agent/config";
 import { runNextQueued } from "./engine/runner";
+import { createLazyGitHub } from "./github/lazy";
 import { createHandlerRegistry } from "./handlers/index";
 import { PrismaRunStore } from "./store";
 
@@ -63,11 +64,47 @@ async function loadCredential(
   };
 }
 
+/**
+ * The GitHub token, decrypted at the moment of use.
+ *
+ * Unlike the AI provider keys — which are per-pipeline and have no environment
+ * fallback — GITHUB_TOKEN is a global integration secret, and `.env` is a
+ * documented place to put it on a self-hosted box (docs/INTEGRATIONS.md).
+ * The encrypted store wins when both are set.
+ */
+async function loadGitHubToken(): Promise<string | null> {
+  const row = await prisma.secret.findUnique({ where: { name: "GITHUB_TOKEN" } });
+  const key = process.env.SECRETS_ENC_KEY;
+
+  if (row && key) return decryptSecret(row.ciphertext, key);
+  return process.env.GITHUB_TOKEN ?? null;
+}
+
+const github = createLazyGitHub({
+  loadToken: loadGitHubToken,
+  log: (message) => console.log(message),
+});
+
 const handlers = createHandlerRegistry({
   agent: {
     runners: createRunnerRegistry(),
     loadProfiles,
     loadCredential,
+    log: async (runId, entry) => {
+      await store.appendLog(runId, {
+        level: entry.level,
+        message: entry.message,
+        nodeId: entry.nodeId,
+      });
+    },
+  },
+  github: {
+    client: github.client,
+    git: github.git,
+    identity: {
+      name: process.env.GIT_COMMIT_NAME ?? "AgentFlow",
+      email: process.env.GIT_COMMIT_EMAIL ?? "agentflow@localhost",
+    },
     log: async (runId, entry) => {
       await store.appendLog(runId, {
         level: entry.level,

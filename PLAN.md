@@ -10,10 +10,10 @@
 
 ## Legend / conventions
 
-- `web/` = Next.js app (editor + API + DB) · `worker/` = execution engine (Claude Agent SDK + GitHub).
+- `web/` = Next.js app (editor + API + DB) · `worker/` = execution engine (agent runners + GitHub).
 - ⛔ = a gate you must not cross until green.
 - "Paste output" = run it, copy the real terminal result into your gate report.
-- **Mock by default**: agent (Claude Agent SDK) and GitHub (Octokit) calls go through injected interfaces so tests never hit the network or spend tokens. See [docs/TESTING.md](docs/TESTING.md).
+- **Mock by default**: agent (whichever runner the node names) and GitHub (Octokit) calls go through injected interfaces so tests never hit the network or spend tokens. See [docs/TESTING.md](docs/TESTING.md).
 
 ---
 
@@ -212,9 +212,9 @@ npm run test:worker -- engine/run.integration
 
 ---
 
-## Phase 5 — Agent node (Claude Agent SDK)
+## Phase 5 — Agent node (pluggable runners)
 
-**Objective:** A node type that runs a **Claude Agent SDK** agent in an isolated per-run workspace and returns its output — with logs streamed and tool use gated. **Verify the SDK API against `code.claude.com/docs/en/agent-sdk` before writing** (see [docs/AGENTS.md](docs/AGENTS.md)).
+**Objective:** A node type that runs an agent **on whichever provider the node names** in an isolated per-run workspace and returns its output — with logs streamed and tool use gated. **Verify the SDK API against `code.claude.com/docs/en/agent-sdk` before writing** (see [docs/AGENTS.md](docs/AGENTS.md)).
 
 **Tasks**
 1. Per-run **workspace manager** (`worker/src/workspace/`): a fresh temp dir per run; cleaned up after. Agents operate only inside it.
