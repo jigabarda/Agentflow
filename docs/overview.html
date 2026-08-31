@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentFlow — Visual AI Dev Pipeline</title>
+<style>
+  /* ---------- Tokens (light default) ---------- */
+  :root{
+    --bg:#F4F6FB; --bg-canvas:#EAEEF6; --panel:#FFFFFF; --panel-2:#F6F8FC;
+    --border:#E0E5F0; --border-strong:#C6CEDE;
+    --text:#171E30; --text-dim:#54607C; --text-faint:#8b94ac;
+    --trigger:#2E7FD1; --flow:#5B67D8; --agent:#B9770E; --github:#2E9E63; --deploy:#D14E7C;
+    --good:#2E9E63; --run:#B9770E;
+    --accent:#B9770E; --accent-soft:#F4E4C6;
+    --grid:rgba(20,30,60,.05);
+    --shadow:0 1px 2px rgba(18,26,48,.06), 0 12px 32px -12px rgba(18,26,48,.18);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0B0F1C; --bg-canvas:#080B15; --panel:#131A2B; --panel-2:#1A2236;
+      --border:#26304a; --border-strong:#3a4666;
+      --text:#E7EBF7; --text-dim:#98A2C0; --text-faint:#616B8a;
+      --trigger:#54A9F6; --flow:#8E97F6; --agent:#F3B24E; --github:#57CC8E; --deploy:#F1799F;
+      --good:#4FD08A; --run:#F3B24E;
+      --accent:#F3B24E; --accent-soft:#33291a;
+      --grid:rgba(150,170,220,.06);
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 20px 44px -16px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#F4F6FB; --bg-canvas:#EAEEF6; --panel:#FFFFFF; --panel-2:#F6F8FC;
+    --border:#E0E5F0; --border-strong:#C6CEDE;
+    --text:#171E30; --text-dim:#54607C; --text-faint:#8b94ac;
+    --trigger:#2E7FD1; --flow:#5B67D8; --agent:#B9770E; --github:#2E9E63; --deploy:#D14E7C;
+    --good:#2E9E63; --run:#B9770E; --accent:#B9770E; --accent-soft:#F4E4C6;
+    --grid:rgba(20,30,60,.05);
+    --shadow:0 1px 2px rgba(18,26,48,.06), 0 12px 32px -12px rgba(18,26,48,.18);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0B0F1C; --bg-canvas:#080B15; --panel:#131A2B; --panel-2:#1A2236;
+    --border:#26304a; --border-strong:#3a4666;
+    --text:#E7EBF7; --text-dim:#98A2C0; --text-faint:#616B8a;
+    --trigger:#54A9F6; --flow:#8E97F6; --agent:#F3B24E; --github:#57CC8E; --deploy:#F1799F;
+    --good:#4FD08A; --run:#F3B24E; --accent:#F3B24E; --accent-soft:#33291a;
+    --grid:rgba(150,170,220,.06);
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 20px 44px -16px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--sans); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding:clamp(16px,4vw,44px);
+  }
+  .wrap{max-width:1200px; margin:0 auto}
+
+  /* ---------- Header ---------- */
+  .head{display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:22px}
+  .brand{display:flex; align-items:center; gap:12px}
+  .logo{width:38px;height:38px;flex:none;border-radius:11px;
+    background:linear-gradient(150deg,var(--agent),var(--deploy));
+    display:grid;place-items:center; box-shadow:var(--shadow)}
+  .logo svg{width:22px;height:22px}
+  .wordmark{font-size:22px;font-weight:750;letter-spacing:-.02em}
+  .wordmark b{color:var(--accent)}
+  .tagline{color:var(--text-dim);font-size:14.5px;margin-top:1px}
+  .head-spacer{flex:1 1 40px}
+  .toggle{
+    display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+    background:var(--panel);border:1px solid var(--border);color:var(--text-dim);
+    border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;font-family:inherit;
+  }
+  .toggle:hover{border-color:var(--border-strong);color:var(--text)}
+  .toggle svg{width:15px;height:15px}
+
+  /* ---------- App shell ---------- */
+  .app{
+    border:1px solid var(--border); border-radius:18px; overflow:hidden;
+    background:var(--panel); box-shadow:var(--shadow);
+    display:grid; grid-template-columns:220px 1fr 320px;
+    grid-template-rows:auto 1fr auto;
+    grid-template-areas:"bar bar bar" "lib canvas inspect" "log log log";
+  }
+  .bar{
+    grid-area:bar; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:12px 16px; border-bottom:1px solid var(--border); background:var(--panel-2);
+  }
+  .bar .pipe{font-weight:650;font-size:14px;display:flex;align-items:center;gap:8px}
+  .bar .pipe .dot{width:8px;height:8px;border-radius:50%;background:var(--run);
+    box-shadow:0 0 0 4px var(--accent-soft)}
+  .crumb{color:var(--text-faint);font-size:12.5px;font-family:var(--mono)}
+  .bar-spacer{flex:1}
+  .runpill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;
+    color:var(--run);background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--run) 30%,transparent);
+    padding:5px 11px;border-radius:999px}
+  .runpill .spin{width:12px;height:12px;border-radius:50%;
+    border:2px solid color-mix(in srgb,var(--run) 35%,transparent);border-top-color:var(--run);
+    animation:spin 1s linear infinite}
+  .btn{font-family:inherit;font-weight:650;font-size:13px;border-radius:9px;padding:8px 14px;
+    border:1px solid var(--border-strong);background:var(--panel);color:var(--text);cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent);
+    color:#1a1206}
+  :root[data-theme="light"] .btn.primary{color:#fff}
+  @media (prefers-color-scheme: light){.btn.primary{color:#fff}}
+
+  /* ---------- Library rail ---------- */
+  .lib{grid-area:lib;border-right:1px solid var(--border);padding:14px 12px;background:var(--panel)}
+  .lib h3, .inspect h3{font-size:11px;text-transform:uppercase;letter-spacing:.09em;
+    color:var(--text-faint);margin:0 0 10px;font-weight:700}
+  .agent-card{width:100%;text-align:left;font-family:inherit;cursor:pointer;
+    display:block;background:var(--panel-2);border:1px solid var(--border);
+    border-radius:11px;padding:10px 11px;margin-bottom:8px;color:var(--text)}
+  .agent-card:hover{border-color:var(--border-strong)}
+  .agent-card.sel{border-color:var(--agent);background:var(--accent-soft)}
+  .agent-card .an{font-weight:650;font-size:13px;display:flex;align-items:center;gap:7px}
+  .agent-card .an .d{width:8px;height:8px;border-radius:50%;background:var(--agent);flex:none}
+  .agent-card .am{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:5px}
+  .newagent{width:100%;font-family:inherit;cursor:pointer;color:var(--text-faint);
+    border:1px dashed var(--border-strong);background:transparent;border-radius:11px;
+    padding:9px;font-size:12.5px;font-weight:600;margin-top:2px}
+  .newagent:hover{color:var(--text);border-color:var(--agent)}
+
+  /* ---------- Canvas ---------- */
+  .canvas{grid-area:canvas;background:
+      radial-gradient(circle at 1px 1px, var(--grid) 1px, transparent 0) 0 0/22px 22px,
+      var(--bg-canvas);
+    padding:26px 8px; overflow-x:auto; overflow-y:hidden; min-width:0}
+  .track{display:flex;align-items:stretch;gap:0;min-width:max-content;padding:0 18px;height:100%}
+  .node{
+    position:relative;width:172px;flex:none;background:var(--panel);
+    border:1px solid var(--border);border-left:3px solid var(--c,var(--border-strong));
+    border-radius:13px;padding:12px 13px;display:flex;flex-direction:column;gap:2px;
+    box-shadow:var(--shadow);align-self:center;font-family:inherit;text-align:left;color:var(--text)}
+  .node.cat-trigger{--c:var(--trigger)} .node.cat-flow{--c:var(--flow)}
+  .node.cat-agent{--c:var(--agent)} .node.cat-github{--c:var(--github)}
+  .node.cat-deploy{--c:var(--deploy)}
+  .node.clk{cursor:pointer}
+  .node.clk:hover{border-color:var(--c)}
+  .node.sel{outline:2px solid var(--c);outline-offset:2px}
+  .node.pending{opacity:.62}
+  .node.running{box-shadow:0 0 0 1px var(--run), 0 0 0 6px var(--accent-soft), var(--shadow)}
+  .n-head{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+  .n-ico{width:24px;height:24px;border-radius:7px;flex:none;display:grid;place-items:center;
+    background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c)}
+  .n-ico svg{width:14px;height:14px}
+  .n-kind{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--c)}
+  .n-stat{margin-left:auto}
+  .chk{width:17px;height:17px;border-radius:50%;background:var(--good);display:grid;place-items:center}
+  .chk svg{width:11px;height:11px;color:#fff}
+  .runico{width:13px;height:13px;border-radius:50%;
+    border:2px solid color-mix(in srgb,var(--run) 35%,transparent);border-top-color:var(--run);
+    animation:spin 1s linear infinite}
+  .pend{width:9px;height:9px;border-radius:50%;border:2px solid var(--border-strong)}
+  .n-title{font-weight:680;font-size:14px;letter-spacing:-.01em}
+  .n-sub{font-size:11.5px;color:var(--text-dim)}
+  .n-model{margin-top:6px;font-family:var(--mono);font-size:10.5px;color:var(--text);
+    background:var(--panel-2);border:1px solid var(--border);border-radius:6px;
+    padding:3px 6px;display:inline-flex;align-items:center;gap:5px;align-self:flex-start}
+  .n-model .md{width:6px;height:6px;border-radius:50%;background:var(--agent)}
+  .gated{margin-top:6px;font-size:10px;color:var(--text-faint);display:inline-flex;gap:4px;align-items:center}
+  .gated svg{width:11px;height:11px}
+
+  /* edges */
+  .edge{flex:none;width:34px;align-self:center;height:2px;position:relative;
+    background:var(--good)}
+  .edge.pending{background:var(--border-strong);opacity:.6}
+  .edge::after{content:"";position:absolute;right:-1px;top:50%;transform:translateY(-50%);
+    border:4px solid transparent;border-left-color:currentColor;color:var(--border-strong)}
+  .edge{color:var(--good)}
+  .edge.pending{color:var(--border-strong)}
+  .edge.active{background:transparent;background-image:linear-gradient(90deg,var(--run) 55%,transparent 0);
+    background-size:9px 2px;background-repeat:repeat-x;animation:march .6s linear infinite;color:var(--run)}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;padding:10px 20px 2px;font-size:11.5px;color:var(--text-dim)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+
+  /* ---------- Inspector ---------- */
+  .inspect{grid-area:inspect;border-left:1px solid var(--border);padding:15px 15px 18px;
+    background:var(--panel);min-width:0}
+  .insp-node{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+  .insp-node .n-ico{width:28px;height:28px}
+  .insp-name{font-weight:700;font-size:16px;letter-spacing:-.01em}
+  .insp-role{font-size:12px;color:var(--text-dim);margin-bottom:14px}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.07em;
+    color:var(--text-faint);font-weight:700;margin-bottom:6px}
+  .select{display:flex;align-items:center;gap:8px;background:var(--panel-2);
+    border:1px solid var(--border-strong);border-radius:9px;padding:9px 11px;
+    font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .select .md{width:8px;height:8px;border-radius:50%;background:var(--agent);flex:none}
+  .select .cev{margin-left:auto;color:var(--text-faint)}
+  .select .cev svg{width:14px;height:14px;display:block}
+  .seg{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  .seg span{flex:1;text-align:center;font-size:11px;font-weight:650;padding:7px 4px;color:var(--text-faint);
+    border-right:1px solid var(--border)}
+  .seg span:last-child{border-right:0}
+  .seg span.on{background:var(--accent);color:#1a1206}
+  :root[data-theme="light"] .seg span.on{color:#fff}
+  @media (prefers-color-scheme: light){.seg span.on{color:#fff}}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-family:var(--mono);font-size:11px;background:var(--panel-2);border:1px solid var(--border);
+    border-radius:6px;padding:4px 8px;color:var(--text-dim)}
+  .chip.on{color:var(--text);border-color:var(--border-strong)}
+  .prompt{background:var(--panel-2);border:1px solid var(--border);border-radius:9px;
+    padding:10px 11px;font-size:12px;color:var(--text-dim);line-height:1.55}
+  .meta-row{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-top:2px}
+  .meta-row b{color:var(--text);font-family:var(--mono);font-weight:600}
+
+  /* ---------- Run log ---------- */
+  .log{grid-area:log;border-top:1px solid var(--border);background:var(--bg-canvas);
+    padding:12px 16px;font-family:var(--mono);font-size:12px;color:var(--text-dim);
+    max-height:150px;overflow:auto}
+  .log .lt{color:var(--text-faint)}
+  .log .lok{color:var(--good)} .log .lag{color:var(--agent)}
+  .log b{color:var(--text);font-weight:600}
+  .log .cur{display:inline-block;width:8px;height:14px;background:var(--run);
+    vertical-align:-2px;animation:blink 1.05s step-end infinite}
+  .log-line{white-space:pre-wrap;margin:2px 0}
+
+  /* ---------- Footer strips ---------- */
+  .strips{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:15px;padding:18px 20px}
+  .card h4{margin:0 0 12px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint)}
+  .flowrow{display:flex;flex-wrap:wrap;gap:7px;align-items:center;font-size:13px}
+  .flowrow .step{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:5px 9px;font-weight:600}
+  .flowrow .step.ai{border-color:color-mix(in srgb,var(--agent) 40%,transparent);color:var(--text)}
+  .flowrow .step.ai::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
+    background:var(--agent);margin-right:6px;vertical-align:1px}
+  .flowrow .arw{color:var(--text-faint)}
+  .bl{list-style:none;margin:0;padding:0}
+  .bl li{position:relative;padding-left:22px;margin-bottom:11px;font-size:13.5px;color:var(--text-dim)}
+  .bl li:last-child{margin-bottom:0}
+  .bl li b{color:var(--text);font-weight:650}
+  .bl li::before{content:"";position:absolute;left:0;top:6px;width:11px;height:11px;border-radius:3px;
+    background:color-mix(in srgb,var(--accent) 25%,transparent);border:1.5px solid var(--accent)}
+  .foot{margin-top:20px;text-align:center;color:var(--text-faint);font-size:12px}
+  .foot code{font-family:var(--mono);color:var(--text-dim)}
+
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes march{to{background-position:9px 0}}
+  @keyframes blink{50%{opacity:0}}
+
+  @media (max-width:940px){
+    .app{grid-template-columns:1fr;grid-template-areas:"bar" "canvas" "inspect" "lib" "log"}
+    .lib{border-right:0;border-top:1px solid var(--border)}
+    .inspect{border-left:0;border-top:1px solid var(--border)}
+    .strips{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="head">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1a1206" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="5" cy="6" r="2.4"/><circle cx="5" cy="18" r="2.4"/><circle cx="19" cy="12" r="2.4"/>
+          <path d="M7.2 6h4.3a3 3 0 0 1 3 3v.4M7.2 18h4.3a3 3 0 0 0 3-3v-.4M16.6 12h.1"/>
+        </svg>
+      </span>
+      <div>
+        <div class="wordmark">Agent<b>Flow</b></div>
+        <div class="tagline">Draw your dev workflow. Assign AI agents to run it.</div>
+      </div>
+    </div>
+    <div class="head-spacer"></div>
+    <button class="toggle" id="themeBtn" aria-label="Toggle color theme">
+      <svg id="thIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5 3.6 3.6M20.4 20.4 19 19M19 5l1.4-1.4M3.6 20.4 5 19"/></svg>
+      <span id="thLabel">Theme</span>
+    </button>
+  </header>
+
+  <!-- ================= APP MOCKUP ================= -->
+  <section class="app" aria-label="AgentFlow application mockup">
+    <div class="bar">
+      <span class="pipe"><span class="dot"></span> Issue&nbsp;→&nbsp;PR&nbsp;→&nbsp;Deploy</span>
+      <span class="crumb">acme/checkout-api&nbsp;·&nbsp;run #1042</span>
+      <span class="bar-spacer"></span>
+      <span class="runpill"><span class="spin"></span> Running · step 4 / 9</span>
+      <button class="btn">Logs</button>
+      <button class="btn primary">Run pipeline</button>
+    </div>
+
+    <!-- Agents library -->
+    <aside class="lib">
+      <h3>Agents</h3>
+      <button class="agent-card" data-pick="triager">
+        <div class="an"><span class="d" style="background:var(--agent)"></span>Cheap Triager</div>
+        <div class="am">claude-haiku-4-5 · low</div>
+      </button>
+      <button class="agent-card sel" data-pick="implementer">
+        <div class="an"><span class="d"></span>Senior Implementer</div>
+        <div class="am">claude-opus-4-8 · xhigh</div>
+      </button>
+      <button class="agent-card" data-pick="reviewer">
+        <div class="an"><span class="d"></span>Strict Reviewer</div>
+        <div class="am">claude-opus-4-8 · high</div>
+      </button>
+      <button class="newagent">+ New agent</button>
+    </aside>
+
+    <!-- Canvas -->
+    <div class="canvas">
+      <div class="track">
+
+        <button class="node cat-trigger clk" data-pick="issue">
+          <div class="n-head">
+            <span class="n-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg></span>
+            <span class="n-kind">Trigger</span>
+            <span class="n-stat"><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+          </div>
+          <div class="n-title">GitHub Issue</div>
+          <div class="n-sub">#482 · Add CSV export</div>
+        </button>
+
+        <span class="edge"></span>
+
+        <button class="node cat-agent clk" data-pick="triager">
+          <div class="n-head">
+            <span class="n-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9z"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg></span>
+            <span class="n-kind">Agent</span>
+            <span class="n-stat"><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+          </div>
+          <div class="n-title">Triager</div>
+          <div class="n-sub">Classify &amp; route</div>
+          <span class="n-model"><span class="md"></span>haiku-4.5 · low</span>
+        </button>
+
+        <span class="edge"></span>
+
+        <button class="node cat-github clk" data-pick="clone">
+          <div class="n-head">
+            <span class="n-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 8.4v7.2M8.4 6H14a3 3 0 0 1 3 3v-.6"/></svg></span>
+            <span class="n-kind">GitHub</span>
+            <span class="n-stat"><span class="chk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+          </div>
+          <div class="n-title">Clone Repo</div>
+          <div class="n-sub">→ workspace</div>
+        </button>
+
+        <span class="edge active"></span>
+
+        <button class="node cat-agent clk running sel" data-pick="implementer">
+          <div class="n-head">
+            <span class="n-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9z"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg></span>
+            <span class="n-kind">Agent</span>
+            <span class="n-stat"><span class="runico"></span></span>
+          </div>
+          <div class="n-title">Implementer</div>
+          <div class="n-sub">Writing code…</div>
+          <span class="n-model"><span class="md"></span>opus-4.8 · xhigh</span>
+        </button>
+
+        <span class="edge pending"></span>
+
+        <button class="node cat-github clk pending" data-pick="pr">
+          <div class="n-head">
+            <span class="n-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M6 8.4v7.2M18 8v7.6M8.4 6H14a4 4 0 0 1 4 4"/></svg></span>
+            <span class="n-kind">GitHub</span>
+            <span class="n-stat"><span class="pend"></span></span>
+          </div>
+          <div class="n-title">Open PR</div>
+          <div class="n-sub">branch → main</div>
+        </button>
+
+        <span class="edge pending"></span>
+
+        <button class="node cat-flow clk pending" data-pick="ci">
+          <div class="n-head">
+            <span class="n-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M6 21h12M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9"/></svg></span>
+            <span class="n-kind">Gate</span>
+            <span class="n-stat"><span class="pend"></span></span>
+          </div>
+          <div class="n-title">Wait for CI</div>
+          <div class="n-sub">GitHub Actions</div>
+        </button>
+
+        <span class="edge pending"></span>
+
+        <button class="node cat-agent clk pending" data-pick="reviewer">
+          <div class="n-head">
+            <span class="n-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9z"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg></span>
+            <span class="n-kind">Agent</span>
+            <span class="n-stat"><span class="pend"></span></span>
+          </div>
+          <div class="n-title">Reviewer</div>
+          <div class="n-sub">Approve / changes</div>
+          <span class="n-model"><span class="md"></span>opus-4.8 · high</span>
+        </button>
+
+        <span class="edge pending"></span>
+
+        <button class="node cat-github clk pending" data-pick="merge">
+          <div class="n-head">
+            <span class="n-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M6 8.4v7.2M18 15.6V15a5 5 0 0 0-5-5H8.4"/></svg></span>
+            <span class="n-kind">GitHub</span>
+            <span class="n-stat"><span class="pend"></span></span>
+          </div>
+          <div class="n-title">Merge PR</div>
+          <span class="gated"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>gated · needs green CI</span>
+        </button>
+
+        <span class="edge pending"></span>
+
+        <button class="node cat-deploy clk pending" data-pick="deploy">
+          <div class="n-head">
+            <span class="n-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3.5 2 5 6 5 9l-5 4-5-4c0-3 1.5-7 5-9Z"/><circle cx="12" cy="9" r="1.6"/><path d="M8 15l-2 5 4-2M16 15l2 5-4-2"/></svg></span>
+            <span class="n-kind">Deploy</span>
+            <span class="n-stat"><span class="pend"></span></span>
+          </div>
+          <div class="n-title">Deploy</div>
+          <div class="n-sub">Vercel · preview</div>
+        </button>
+
+      </div>
+      <div class="legend" aria-hidden="true">
+        <span><i style="background:var(--trigger)"></i>Trigger</span>
+        <span><i style="background:var(--agent)"></i>AI agent</span>
+        <span><i style="background:var(--github)"></i>GitHub</span>
+        <span><i style="background:var(--flow)"></i>Gate</span>
+        <span><i style="background:var(--deploy)"></i>Deploy</span>
+      </div>
+    </div>
+
+    <!-- Inspector -->
+    <aside class="inspect" aria-live="polite">
+      <h3>Node config</h3>
+      <div class="insp-node">
+        <span class="n-ico" id="iIco" style="--c:var(--agent);width:28px;height:28px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9z"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+        </span>
+        <div>
+          <div class="insp-name" id="iName">Implementer</div>
+        </div>
+      </div>
+      <div class="insp-role" id="iRole">Agent profile · Senior Implementer</div>
+
+      <div class="field">
+        <label>AI model</label>
+        <div class="select"><span class="md"></span><span id="iModel">claude-opus-4-8</span>
+          <span class="cev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></div>
+      </div>
+
+      <div class="field">
+        <label>Effort</label>
+        <div class="seg" id="iEffort">
+          <span data-e="low">low</span><span data-e="medium">med</span><span data-e="high">high</span><span data-e="xhigh">xhigh</span><span data-e="max">max</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Tools allowed</label>
+        <div class="chips" id="iTools"></div>
+      </div>
+
+      <div class="field">
+        <label>System prompt</label>
+        <div class="prompt" id="iPrompt"></div>
+      </div>
+
+      <div class="field" style="margin-bottom:0">
+        <label>Guards</label>
+        <div class="meta-row"><span>Max tokens / run</span><b id="iTokens">200k</b></div>
+        <div class="meta-row"><span>Workspace</span><b>isolated</b></div>
+      </div>
+    </aside>
+
+    <!-- Run log -->
+    <div class="log" id="log">
+      <div class="log-line"><span class="lt">14:02:06</span> <span class="lok">✓</span> triager · <b>haiku-4.5</b> → classified: <b>feature</b>, actionable</div>
+      <div class="log-line"><span class="lt">14:02:11</span> <span class="lok">✓</span> clone-repo · acme/checkout-api @ <b>a91f0c3</b> → /workspace</div>
+      <div class="log-line"><span class="lt">14:02:12</span> <span class="lag">▶</span> implementer · <b>opus-4.8 · xhigh</b> started</div>
+      <div class="log-line"><span class="lt">14:02:29</span> <span class="lag">→</span> read <b>src/export/csv.ts</b>, <b>src/routes/export.ts</b></div>
+      <div class="log-line"><span class="lt">14:02:44</span> <span class="lag">→</span> edit <b>src/export/csv.ts</b> · +54 −6 · added streaming writer<span class="cur"></span></div>
+    </div>
+  </section>
+
+  <!-- ================= EXPLAINER STRIPS ================= -->
+  <section class="strips">
+    <div class="card">
+      <h4>How a run flows</h4>
+      <div class="flowrow">
+        <span class="step">Issue</span><span class="arw">→</span>
+        <span class="step ai">Triage</span><span class="arw">→</span>
+        <span class="step ai">Implement</span><span class="arw">→</span>
+        <span class="step">PR</span><span class="arw">→</span>
+        <span class="step">CI tests</span><span class="arw">→</span>
+        <span class="step ai">Review</span><span class="arw">→</span>
+        <span class="step">Merge</span><span class="arw">→</span>
+        <span class="step">Deploy</span>
+      </div>
+      <p style="color:var(--text-dim);font-size:13px;margin:14px 0 0">
+        A trigger fires a run; the engine walks the graph node by node, handing each task to
+        the <b style="color:var(--text)">model you assigned</b>. Agents propose code inside an isolated
+        workspace — <b style="color:var(--text)">push, merge and deploy are gated nodes</b>, not agent actions.
+      </p>
+    </div>
+    <div class="card">
+      <h4>Why devs care</h4>
+      <ul class="bl">
+        <li><b>Clears the boring backlog.</b> Routine issues go from ticket to reviewable PR — you stay the reviewer, not the typist.</li>
+        <li><b>Right model per task.</b> Cheap Haiku triages, Opus writes &amp; reviews. You pick the model on every node.</li>
+        <li><b>You keep control.</b> Self-hosted, secrets encrypted, tests run in your CI, destructive steps gated.</li>
+        <li><b>Design the process once.</b> Encode your team's workflow as a flowchart; it runs the same way every time.</li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="foot">Interactive mockup — click any <b style="color:var(--text)">agent node</b> or an entry in the <b style="color:var(--text)">Agents</b> list to see its model config. Powered by the <code>Claude Agent SDK</code>.</p>
+</div>
+
+<script>
+(function(){
+  // ---- theme toggle ----
+  var root=document.documentElement, btn=document.getElementById('themeBtn'), lbl=document.getElementById('thLabel');
+  function cur(){ if(root.dataset.theme) return root.dataset.theme;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }
+  function apply(t){ root.dataset.theme=t; lbl.textContent = t==='dark'?'Dark':'Light'; }
+  apply(cur());
+  btn.addEventListener('click',function(){ apply(cur()==='dark'?'light':'dark'); });
+
+  // ---- node / inspector data ----
+  var TOOLS_ALL=['Read','Write','Edit','Grep','Glob','Bash'];
+  var data={
+    triager:{name:'Triager',role:'Agent profile · Cheap Triager',model:'claude-haiku-4-5',effort:'low',
+      tools:['Read','Grep'],tokens:'4k',
+      prompt:'Classify the issue as bug / feature / chore, decide whether it’s actionable, and suggest labels. Do not write code.'},
+    implementer:{name:'Implementer',role:'Agent profile · Senior Implementer',model:'claude-opus-4-8',effort:'xhigh',
+      tools:['Read','Write','Edit','Grep','Glob','Bash'],tokens:'200k',
+      prompt:'You are a senior engineer. Implement the issue with the smallest correct change. Read the code first, add or update tests, keep the diff focused. Do not refactor unrelated code.'},
+    reviewer:{name:'Reviewer',role:'Agent profile · Strict Reviewer',model:'claude-opus-4-8',effort:'high',
+      tools:['Read','Grep','Glob'],tokens:'60k',
+      prompt:'Review the diff against the plan and acceptance criteria. Approve, or request changes with specific, actionable comments.'}
+  };
+  // non-agent nodes: show a light message
+  var nonAgent={
+    issue:{name:'GitHub Issue',role:'Trigger · fires the run'},
+    clone:{name:'Clone Repo',role:'GitHub · clones into an isolated workspace'},
+    pr:{name:'Open PR',role:'GitHub · pushes branch, opens pull request'},
+    ci:{name:'Wait for CI',role:'Gate · polls GitHub Actions for green checks'},
+    merge:{name:'Merge PR',role:'GitHub · gated — only merges when CI is green'},
+    deploy:{name:'Deploy',role:'Deploy · Vercel preview, returns the URL'}
+  };
+
+  var iName=document.getElementById('iName'), iRole=document.getElementById('iRole'),
+      iModel=document.getElementById('iModel'), iTokens=document.getElementById('iTokens'),
+      iPrompt=document.getElementById('iPrompt'), iTools=document.getElementById('iTools'),
+      iEffort=document.getElementById('iEffort'), inspect=document.querySelector('.inspect');
+
+  function agentFields(show){
+    var fields=inspect.querySelectorAll('.field');
+    fields.forEach(function(f){ f.style.display = show?'':'none'; });
+  }
+
+  function render(key){
+    var d=data[key];
+    if(d){
+      agentFields(true);
+      iName.textContent=d.name; iRole.textContent=d.role;
+      iModel.textContent=d.model; iTokens.textContent=d.tokens;
+      iPrompt.textContent=d.prompt;
+      iTools.innerHTML='';
+      TOOLS_ALL.forEach(function(t){
+        var on=d.tools.indexOf(t)>-1;
+        var s=document.createElement('span'); s.className='chip'+(on?' on':''); s.textContent=t;
+        if(!on) s.style.opacity='.4'; iTools.appendChild(s);
+      });
+      Array.prototype.forEach.call(iEffort.children,function(sp){
+        sp.classList.toggle('on', sp.dataset.e===d.effort);
+      });
+    } else {
+      var n=nonAgent[key]; if(!n) return;
+      agentFields(false);
+      iName.textContent=n.name; iRole.textContent=n.role;
+    }
+  }
+
+  function select(key){
+    document.querySelectorAll('.node').forEach(function(n){
+      n.classList.toggle('sel', n.dataset.pick===key);
+    });
+    document.querySelectorAll('.agent-card').forEach(function(c){
+      c.classList.toggle('sel', c.dataset.pick===key);
+    });
+    render(key);
+  }
+
+  document.querySelectorAll('[data-pick]').forEach(function(el){
+    el.addEventListener('click',function(){ select(el.dataset.pick); });
+  });
+
+  render('implementer');
+})();
+</script>
+</body>
+</html>

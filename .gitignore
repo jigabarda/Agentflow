@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# environment & secrets — never commit these
+.env
+.env.local
+.env.*.local
+
+# database (local, may contain encrypted secrets)
+*.db
+*.db-journal
+prisma/*.db
+prisma/*.db-journal
+
+# test output
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# per-run agent workspaces
+.workspaces/
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# prisma scratch (test + shadow databases)
+prisma/.tmp/

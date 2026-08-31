@@ -1,0 +1,297 @@
+// AgentFlow database — local SQLite, single-user, self-hosted.
+//
+// Two halves, joined by Task ←→ Run:
+//   · WORK TRACKING — Board / BoardColumn / Task / TaskEvent   (docs/BOARD.md)
+//   · EXECUTION     — Pipeline / Run / RunStep / LogEntry      (docs/ARCHITECTURE.md)
+//
+// Secrets and per-pipeline provider keys are stored as ciphertext only
+// (AES-256-GCM, keyed by SECRETS_ENC_KEY). See docs/SECURITY.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────── work tracking ───────────────────────────────
+
+model Board {
+  id        String        @id @default(cuid())
+  name      String
+  columns   BoardColumn[]
+  tasks     Task[]
+  createdAt DateTime      @default(now())
+}
+
+model BoardColumn {
+  id      String @id @default(cuid())
+  boardId String
+  name    String
+  order   Int
+  /// backlog | ready | working | waiting | done — semantic, drives UI + automation
+  kind    String
+
+  /// Soft cap; the UI warns past it.
+  wipLimit Int?
+
+  /// Entering this column starts THIS pipeline. Null = a manual column.
+  pipelineId String?
+
+  /// { onRunSucceeded?, onRunFailed?, onPrMerged? } → destination column ids.
+  autoAdvance Json?
+
+  board    Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  pipeline Pipeline? @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  tasks    Task[]
+
+  @@index([boardId, order])
+}
+
+model Task {
+  id       String @id @default(cuid())
+  boardId  String
+  columnId String
+  title    String
+
+  /// Markdown — this is the brief the agent reads.
+  body String?
+
+  /// Fractional index: a drag-reorder writes one row, never renumbers neighbours.
+  order    Float
+  priority String @default("normal")
+
+  /// string[]
+  labels   Json
+  estimate Int?
+
+  /// "owner/name" — the repo this task acts on.
+  repo        String?
+  issueNumber Int?
+  prNumber    Int?
+  prUrl       String?
+
+  /// string[] of Task ids — the card is blocked until they are done.
+  blockedBy Json
+
+  dueAt DateTime?
+
+  /// cron/RRULE — a template card respawns children on this schedule.
+  recurrence String?
+
+  /// Set when this card was spawned from a recurrence template.
+  templateId String?
+
+  /// Set when a `create-task` node produced this card during a run.
+  parentTaskId String?
+
+  archivedAt DateTime?
+
+  board  Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  column BoardColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  runs   Run[]
+  events TaskEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([boardId])
+  @@index([columnId, order])
+  @@index([templateId])
+}
+
+/// The card's activity feed — human and agent actions in ONE timeline.
+model TaskEvent {
+  id      String @id @default(cuid())
+  taskId  String
+  /// "user" | "agent:<nodeId>" | "system" | "github"
+  actor   String
+  /// moved | commented | run_started | run_step | run_failed | pr_opened | approved | ...
+  kind    String
+  message String
+  meta    Json?
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
+}
+
+// ──────────────────────────────── execution ─────────────────────────────────
+
+model Pipeline {
+  id          String               @id @default(cuid())
+  name        String
+  nodes       PipelineNode[]
+  edges       PipelineEdge[]
+  variables   Variable[]
+  /// The AI provider API keys for THIS pipeline.
+  credentials ProviderCredential[]
+  runs        Run[]
+  columns     BoardColumn[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+/// Node ids are scoped to their pipeline, not global: they are author-chosen and
+/// readable (`planner`, `implementer`) because prompts interpolate them as
+/// `{{ nodes.planner.output.tasks }}`. Two pipelines may both have an `agent-1`.
+model PipelineNode {
+  id         String
+  pipelineId String
+  /// Node-type id — the join key to the worker's handler registry.
+  type       String
+  label      String
+  /// Validated by the node type's Zod schema.
+  config     Json
+  x          Float
+  y          Float
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@id([pipelineId, id])
+  @@index([pipelineId])
+}
+
+model PipelineEdge {
+  id           String
+  pipelineId   String
+  source       String
+  target       String
+  /// For conditional branches (e.g. "true" / "false").
+  sourceHandle String?
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@id([pipelineId, id])
+  @@index([pipelineId])
+}
+
+/// Pipeline-level reusable {{ vars }}.
+model Variable {
+  id         String @id @default(cuid())
+  pipelineId String
+  key        String
+  value      String
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@unique([pipelineId, key])
+}
+
+/// Reusable agent definitions the user builds in the Agents panel.
+model AgentProfile {
+  id   String @id @default(cuid())
+  name String
+
+  /// REQUIRED — the user picks. NO default is ever supplied.
+  provider String
+  /// REQUIRED — the user picks. NO default is ever supplied.
+  model    String
+
+  effort       String @default("high")
+  systemPrompt String
+  /// string[] — which built-in tools this agent may use.
+  allowedTools Json
+  maxTokens    Int?
+
+  /// Bumped on edit; a node may pin a version so in-flight runs are stable.
+  version Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Run {
+  id         String  @id @default(cuid())
+  pipelineId String
+  /// The board card this run belongs to. Null for canvas test-runs.
+  taskId     String?
+
+  /// queued | running | awaiting_approval | succeeded | failed | canceled
+  status String
+
+  /// The triggering payload (the task card, an issue, or manual input).
+  trigger Json
+
+  steps      RunStep[]
+  logs       LogEntry[]
+  tokensUsed Int        @default(0)
+  error      String?
+
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime  @default(now())
+
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  task     Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([taskId])
+  @@index([pipelineId])
+}
+
+model RunStep {
+  id     String  @id @default(cuid())
+  runId  String
+  nodeId String
+  /// pending | running | succeeded | failed | skipped
+  status String
+  /// Node output, merged into the run context under nodes.<nodeId>.output
+  output Json?
+  error  String?
+
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model LogEntry {
+  id      String  @id @default(cuid())
+  runId   String
+  nodeId  String?
+  /// debug | info | warn | error
+  level   String
+  /// Secrets are ALWAYS redacted before write.
+  message String
+
+  run       Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([runId, createdAt])
+}
+
+/// App/integration tokens (GitHub, Vercel, Netlify) — encrypted at rest.
+model Secret {
+  id         String   @id @default(cuid())
+  /// e.g. GITHUB_TOKEN, VERCEL_TOKEN
+  name       String   @unique
+  /// AES-256-GCM ciphertext. Plaintext is never stored or logged.
+  ciphertext String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// The AI model API key the user supplies FOR THIS PIPELINE.
+model ProviderCredential {
+  id         String  @id @default(cuid())
+  pipelineId String
+  /// "claude" | "openai" | "gemini" | "ollama" | "openai-compat" ...
+  provider   String
+  label      String?
+  /// AES-256-GCM ciphertext; write-only, never logged. Null for keyless local providers.
+  keyCipher  String?
+  /// For local/self-hosted endpoints, e.g. http://localhost:11434 (Ollama).
+  baseUrl    String?
+
+  pipeline  Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pipelineId, provider])
+}

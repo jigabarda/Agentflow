@@ -1,0 +1,41 @@
+{
+  "name": "agentflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Board-first workflow management for daily dev work, where the workers are AI agents.",
+  "workspaces": [
+    "web",
+    "worker",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace web run dev",
+    "dev:worker": "npm --workspace worker run dev",
+    "build": "npm run typecheck && npm --workspace web run build",
+    "typecheck": "npm --workspace packages/core run typecheck && npm --workspace web run typecheck && npm --workspace worker run typecheck",
+    "test": "npm run test:core && npm run test:web && npm run test:worker",
+    "test:core": "npm --workspace packages/core run test",
+    "test:web": "npm --workspace web run test",
+    "test:worker": "npm --workspace worker run test",
+    "lint": "npm --workspace packages/core run lint && npm --workspace web run lint && npm --workspace worker run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,mts,mjs,json,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,mts,mjs,json,css}\"",
+    "e2e": "npm --workspace web run e2e",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:status": "prisma migrate status",
+    "db:studio": "prisma studio"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "prisma": "^6.2.1",
+    "typescript": "^5.7.3"
+  },
+  "overridesComment": "deepmerge-ts <8 has a stack-exhaustion advisory (GHSA-ggr8-5vv4-36mx). It reaches us only through the Prisma CLI's config loader, and no Prisma release pins a fixed version yet. Drop this override once @prisma/config ships one.",
+  "overrides": {
+    "deepmerge-ts": "^8.0.1"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}
