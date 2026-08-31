@@ -138,6 +138,9 @@ Auto-advance is **opt-in per column** and always overridable by dragging. Nothin
 The daily-iterative case is a first-class feature, not a cron script bolted on:
 
 - **`recurrence` on a Task** — a *template card* respawns a fresh card into its column on schedule (`0 9 * * 1-5` → every weekday 9am). The template never moves; its children do.
+  - The schedule is read in the card's own `recurrenceTz`, so "09:00" means 09:00 where you are. A wall-clock time that DST skips never fires; one that happens twice fires once.
+  - Exactly once per slot, guaranteed by a unique index on `(templateId, scheduledFor)` rather than by a check-then-write — two schedulers racing end with one card and one refusal.
+  - A worker that was down catches up on the slots it missed, in order, clamped to a week: coming back after a month should not spawn a month of cards. A template switched on long ago spawns one card, not a backlog.
 - **`schedule-trigger` node** — a pipeline that runs on a clock with no card at all (nightly dependency audit, morning CI digest).
 - **Today view** — a flat, board-agnostic list of what's due, overdue, in flight, and waiting on you, with a one-click ▶ Run for each. This is the screen to open at 9am.
 

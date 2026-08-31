@@ -52,6 +52,8 @@ type TaskRow = {
   blockedBy: Prisma.JsonValue;
   dueAt: Date | null;
   recurrence: string | null;
+  recurrenceTz: string | null;
+  scheduledFor: Date | null;
   templateId: string | null;
   parentTaskId: string | null;
   archivedAt: Date | null;
@@ -75,6 +77,8 @@ function toTask(row: TaskRow): Task {
     blockedBy: toStringArray(row.blockedBy),
     dueAt: row.dueAt,
     recurrence: row.recurrence,
+    recurrenceTz: row.recurrenceTz,
+    scheduledFor: row.scheduledFor,
     templateId: row.templateId,
     parentTaskId: row.parentTaskId,
     archivedAt: row.archivedAt,
@@ -175,6 +179,7 @@ export async function updateTask(
       ...(data.blockedBy !== undefined ? { blockedBy: data.blockedBy } : {}),
       ...(data.dueAt !== undefined ? { dueAt: data.dueAt } : {}),
       ...(data.recurrence !== undefined ? { recurrence: data.recurrence } : {}),
+      ...(data.recurrenceTz !== undefined ? { recurrenceTz: data.recurrenceTz } : {}),
     },
   });
 

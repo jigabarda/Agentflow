@@ -81,6 +81,16 @@ model Task {
   /// cron/RRULE — a template card respawns children on this schedule.
   recurrence String?
 
+  /// The timezone the recurrence is read in. "09:00" means 09:00 where you are.
+  recurrenceTz String?
+
+  /// For a child card: the slot it was spawned for. Null for anything else.
+  ///
+  /// Together with the unique index below, this is what makes spawning
+  /// idempotent — a doubled or replayed tick cannot create the same card
+  /// twice, even if two schedulers race, because the database refuses it.
+  scheduledFor DateTime?
+
   /// Set when this card was spawned from a recurrence template.
   templateId String?
 
@@ -100,6 +110,8 @@ model Task {
   @@index([boardId])
   @@index([columnId, order])
   @@index([templateId])
+
+  @@unique([templateId, scheduledFor])
 }
 
 /// The card's activity feed — human and agent actions in ONE timeline.
@@ -227,6 +239,10 @@ model Run {
   tokensUsed Int        @default(0)
   error      String?
 
+  /// The scheduler slot this run was created for. Null for anything else.
+  /// Unique per pipeline, so a replayed tick cannot enqueue the same run twice.
+  scheduledFor DateTime?
+
   startedAt DateTime?
   endedAt   DateTime?
   createdAt DateTime  @default(now())
@@ -234,6 +250,7 @@ model Run {
   pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   task     Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
+  @@unique([pipelineId, scheduledFor])
   @@index([status])
   @@index([taskId])
   @@index([pipelineId])
