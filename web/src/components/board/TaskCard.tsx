@@ -3,6 +3,8 @@
 import type { Task } from "@agentflow/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import type { RunSummary } from "@/data/runSummaries";
+import { ApprovalControls, RunBadge } from "./RunBadge";
 
 const PRIORITY_STRIPE: Record<string, string> = {
   low: "bg-neutral-300",
@@ -20,14 +22,19 @@ export function TaskCard({
   task,
   blocked,
   selected,
+  run,
   onOpen,
   onSelect,
+  onDecide,
 }: {
   task: Task;
   blocked: boolean;
   selected: boolean;
+  /** This card's newest run, when it has one. */
+  run?: RunSummary;
   onOpen: () => void;
   onSelect: () => void;
+  onDecide: (runId: string, decision: "approve" | "reject") => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -59,6 +66,8 @@ export function TaskCard({
         <p className="text-sm text-neutral-900 dark:text-neutral-100">{task.title}</p>
 
         <div className="mt-1 flex flex-wrap items-center gap-1">
+          {run && <RunBadge run={run} />}
+
           {blocked && (
             <span
               data-testid={`card-blocked-${task.id}`}
@@ -94,6 +103,10 @@ export function TaskCard({
             </span>
           )}
         </div>
+
+        {run?.awaitingApproval && (
+          <ApprovalControls run={run} onDecide={(decision) => onDecide(run.runId, decision)} />
+        )}
       </div>
     </li>
   );

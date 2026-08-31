@@ -27,6 +27,7 @@ function renderCard(props: Partial<Parameters<typeof TaskCard>[0]> = {}) {
     selected: false,
     onOpen: vi.fn(),
     onSelect: vi.fn(),
+    onDecide: vi.fn(),
     ...props,
   };
 
@@ -90,6 +91,7 @@ describe("TaskCard", () => {
               selected={false}
               onOpen={vi.fn()}
               onSelect={vi.fn()}
+              onDecide={vi.fn()}
             />
           </ul>
         </SortableContext>
@@ -103,7 +105,14 @@ describe("TaskCard", () => {
       <DndContext>
         <SortableContext items={["t1"]}>
           <ul>
-            <TaskCard task={task()} blocked={false} selected onOpen={vi.fn()} onSelect={vi.fn()} />
+            <TaskCard
+              task={task()}
+              blocked={false}
+              selected
+              onOpen={vi.fn()}
+              onSelect={vi.fn()}
+              onDecide={vi.fn()}
+            />
           </ul>
         </SortableContext>
       </DndContext>,

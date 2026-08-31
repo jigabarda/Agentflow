@@ -222,6 +222,8 @@ export interface MoveTaskResult {
   task: Task;
   /** Set when the move went through but pushed the column past its WIP limit. */
   warning?: string;
+  /** Where the card came from. Differs from `task.columnId` only on a real move. */
+  fromColumnId: string;
 }
 
 /**
@@ -272,7 +274,11 @@ export async function moveTask(taskId: string, input: MoveTaskInput): Promise<Mo
     });
   }
 
-  return { task: toTask(updated), ...(verdict.warning ? { warning: verdict.warning } : {}) };
+  return {
+    task: toTask(updated),
+    fromColumnId: task.columnId,
+    ...(verdict.warning ? { warning: verdict.warning } : {}),
+  };
 }
 
 /**

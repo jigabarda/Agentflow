@@ -35,3 +35,21 @@ export class NodeFailure extends Error {
     this.name = "NodeFailure";
   }
 }
+
+/**
+ * Not a failure — a deliberate stop.
+ *
+ * `require-approval` throws this to park the run until a human decides. The
+ * runner records `awaiting_approval` and returns; the step stays pending, its
+ * node has not run, and everything already computed is on disk. Approving puts
+ * the run back in the queue and it resumes from exactly here.
+ */
+export class RunPaused extends Error {
+  constructor(
+    readonly nodeId: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "RunPaused";
+  }
+}

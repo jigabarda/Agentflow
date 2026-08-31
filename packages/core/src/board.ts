@@ -84,3 +84,21 @@ export function checkColumnEntry(params: {
 export function pipelineForColumnEntry(column: { pipelineId?: string | null }): string | null {
   return column.pipelineId ?? null;
 }
+
+/**
+ * Does this card match what the pipeline's `task-trigger` asks for?
+ *
+ * `requireLabels` is a filter, not a requirement to be met later: a column can
+ * automate one *kind* of card ("only cards labelled bug") and leave the rest to
+ * be moved by hand. An empty list means every card qualifies.
+ */
+export function taskMatchesTrigger(
+  task: { labels: readonly string[] },
+  requireLabels?: readonly string[] | null,
+): boolean {
+  const required = (requireLabels ?? []).filter((label) => label.trim().length > 0);
+  if (required.length === 0) return true;
+
+  const labels = new Set(task.labels);
+  return required.every((label) => labels.has(label));
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkColumnEntry, nextColumn, pipelineForColumnEntry } from "./board";
+import { checkColumnEntry, nextColumn, pipelineForColumnEntry, taskMatchesTrigger } from "./board";
 
 const rules = {
   autoAdvance: {
@@ -98,5 +98,26 @@ describe("pipelineForColumnEntry", () => {
   it("reports null for a manual column", () => {
     expect(pipelineForColumnEntry({})).toBeNull();
     expect(pipelineForColumnEntry({ pipelineId: null })).toBeNull();
+  });
+});
+
+describe("taskMatchesTrigger", () => {
+  it("accepts every card when no labels are required", () => {
+    expect(taskMatchesTrigger({ labels: [] })).toBe(true);
+    expect(taskMatchesTrigger({ labels: ["bug"] }, [])).toBe(true);
+    expect(taskMatchesTrigger({ labels: ["bug"] }, null)).toBe(true);
+  });
+
+  it("requires every named label, not just one of them", () => {
+    expect(taskMatchesTrigger({ labels: ["bug", "ui"] }, ["bug", "ui"])).toBe(true);
+    expect(taskMatchesTrigger({ labels: ["bug"] }, ["bug", "ui"])).toBe(false);
+  });
+
+  it("rejects a card that carries none of them", () => {
+    expect(taskMatchesTrigger({ labels: ["chore"] }, ["bug"])).toBe(false);
+  });
+
+  it("ignores blank entries rather than blocking every card", () => {
+    expect(taskMatchesTrigger({ labels: ["bug"] }, ["", "  "])).toBe(true);
   });
 });

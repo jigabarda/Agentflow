@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { Task, TaskPriority } from "@agentflow/core";
 import { Timeline } from "./Timeline";
 import { useBoardStore } from "./boardStore";
@@ -21,6 +22,13 @@ export function TaskDrawer({ task }: { task: Task }) {
   const events = useBoardStore((state) => state.events);
   const updateTask = useBoardStore((state) => state.updateTask);
   const openDrawer = useBoardStore((state) => state.openDrawer);
+  const columns = useBoardStore((state) => state.columns);
+  const runs = useBoardStore((state) => state.runs);
+  const runNow = useBoardStore((state) => state.runNow);
+  const decide = useBoardStore((state) => state.decide);
+
+  const column = columns.find((item) => item.id === task.columnId);
+  const run = runs[task.id];
 
   // Seeded once per card: the caller keys this component by task id, so opening
   // a different card remounts it rather than syncing state in an effect.
@@ -62,6 +70,89 @@ export function TaskDrawer({ task }: { task: Task }) {
           ✕
         </button>
       </div>
+
+      <section
+        data-testid="drawer-automation"
+        className="mb-4 rounded border border-neutral-200 p-2 dark:border-neutral-800"
+      >
+        <h3 className="mb-1 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+          Automation
+        </h3>
+
+        <p className="text-xs text-neutral-500">
+          {column?.pipelineId
+            ? `Cards entering ${column.name} run a pipeline.`
+            : `${column?.name ?? "This column"} does not run a pipeline.`}
+        </p>
+
+        {run && (
+          <p className="mt-1 text-xs text-neutral-500">
+            Latest run: <span data-testid="drawer-run-status">{run.status}</span>{" "}
+            {run.total > 0 && `· ${run.done}/${run.total} steps`}{" "}
+            <Link href={`/runs/${run.runId}`} className="text-sky-600 hover:underline">
+              open run
+            </Link>
+          </p>
+        )}
+
+        {run?.error && <p className="mt-1 text-xs text-red-600">{run.error}</p>}
+
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            data-testid="drawer-run-now"
+            disabled={!column?.pipelineId}
+            onClick={() => void runNow(task.id)}
+            className="rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-neutral-300 dark:disabled:bg-neutral-700"
+          >
+            ▶ Run now
+          </button>
+
+          {run?.awaitingApproval && (
+            <>
+              <button
+                type="button"
+                data-testid="drawer-approve"
+                onClick={() => void decide(run.runId, "approve", comment.trim() || undefined)}
+                className="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                data-testid="drawer-reject"
+                onClick={() => void decide(run.runId, "reject", comment.trim() || undefined)}
+                className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                Reject
+              </button>
+            </>
+          )}
+        </div>
+
+        {run?.awaitingApproval && (
+          <p className="mt-1 text-[11px] text-neutral-500">
+            Your comment below is sent with the decision.
+          </p>
+        )}
+      </section>
+
+      {task.prUrl && (
+        <section className="mb-4">
+          <h3 className="mb-1 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            Artifacts
+          </h3>
+          <a
+            data-testid="drawer-pr-link"
+            href={task.prUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-sky-600 hover:underline"
+          >
+            🔗 Pull request {task.prNumber ? `#${task.prNumber}` : ""}
+          </a>
+        </section>
+      )}
 
       <section className="mb-4">
         <label

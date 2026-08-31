@@ -3,6 +3,7 @@
 import { OrderPrecisionError, orderBetween } from "@agentflow/core";
 import type { Board, BoardColumn, Task, TaskEvent } from "@agentflow/core";
 import { create } from "zustand";
+import type { RunSummary } from "@/data/runSummaries";
 import { EMPTY_FILTERS, matchesFilters, type BoardFilters } from "./filters";
 
 /**
@@ -24,6 +25,9 @@ interface BoardState {
   drawerTaskId: string | null;
   events: TaskEvent[];
 
+  /** Live run state per card, pushed over SSE. The card face reads this. */
+  runs: Record<string, RunSummary>;
+
   /** Why the last move was refused — shown to the user, cleared on the next action. */
   rejection: string | null;
   /** A move that went through but pushed a column past its WIP limit. */
@@ -34,6 +38,10 @@ interface BoardState {
 
   visibleTasks: (columnId: string) => Task[];
   allTasksIn: (columnId: string) => Task[];
+
+  setRuns: (summaries: RunSummary[]) => void;
+  runNow: (taskId: string) => Promise<boolean>;
+  decide: (runId: string, decision: "approve" | "reject", comment?: string) => Promise<boolean>;
 
   createTask: (columnId: string, title: string) => Promise<Task | null>;
   moveTask: (taskId: string, toColumnId: string, targetIndex: number) => Promise<boolean>;
@@ -59,8 +67,48 @@ export const useBoardStore = create<BoardState>((set, get) => ({
   events: [],
   rejection: null,
   warning: null,
+  runs: {},
 
   load: (board, tasks) => set({ board, columns: board.columns, tasks }),
+
+  setRuns: (summaries) =>
+    set({ runs: Object.fromEntries(summaries.map((summary) => [summary.taskId, summary])) }),
+
+  runNow: async (taskId) => {
+    set({ rejection: null, warning: null });
+    const response = await fetch(`/api/tasks/${taskId}/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      set({ rejection: payload.error ?? "Could not start a run." });
+      return false;
+    }
+
+    await get().reloadEvents(taskId);
+    return true;
+  },
+
+  decide: async (runId, decision, comment) => {
+    const response = await fetch(`/api/runs/${runId}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decision, ...(comment ? { comment } : {}) }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      set({ rejection: payload.error ?? "Could not record that decision." });
+      return false;
+    }
+
+    const drawerTaskId = get().drawerTaskId;
+    if (drawerTaskId) await get().reloadEvents(drawerTaskId);
+    return true;
+  },
 
   setFilters: (filters) => set({ filters }),
 
@@ -138,10 +186,17 @@ export const useBoardStore = create<BoardState>((set, get) => ({
         return false;
       }
 
-      const result = (await response.json()) as { task: Task; warning?: string };
+      const result = (await response.json()) as {
+        task: Task;
+        warning?: string;
+        automationError?: string;
+      };
       set({
         tasks: get().tasks.map((item) => (item.id === taskId ? result.task : item)),
         ...(result.warning ? { warning: result.warning } : {}),
+        // The card moved; the run did not start. Say so rather than leaving the
+        // user to wonder why nothing is happening.
+        ...(result.automationError ? { rejection: result.automationError } : {}),
       });
       return true;
     } catch {

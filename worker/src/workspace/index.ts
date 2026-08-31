@@ -93,3 +93,25 @@ export function pathsInToolInput(input: unknown): string[] {
   }
   return found;
 }
+
+/**
+ * The workspace for a run, by name rather than at random.
+ *
+ * `createWorkspace` uses mkdtemp, which is right when a fresh directory is all
+ * you need. A run that parks at an approval gate needs the opposite: when it
+ * resumes, minutes or days later, it must find the same clone and the same
+ * edits the agent made. So this path is derived from the run id and creating it
+ * twice is harmless.
+ */
+export function openRunWorkspace(runId: string, root?: string): Workspace {
+  const base = root ?? path.join(os.tmpdir(), "agentflow");
+  mkdirSync(base, { recursive: true });
+
+  const dir = path.join(realpathSync(base), `${PREFIX}${sanitize(runId)}`);
+  mkdirSync(dir, { recursive: true });
+
+  return {
+    dir: realpathSync(dir),
+    cleanup: () => rmSync(dir, { recursive: true, force: true }),
+  };
+}

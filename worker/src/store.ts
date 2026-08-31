@@ -52,6 +52,11 @@ export interface LogInput {
   nodeId?: string | null;
 }
 
+export interface CompletedStep {
+  nodeId: string;
+  output: unknown;
+}
+
 export interface RunStore {
   /** Atomically take one queued run. Returns null when the queue is empty. */
   claimNextQueuedRun(): Promise<QueuedRun | null>;
@@ -60,6 +65,16 @@ export interface RunStore {
   createStep(runId: string, nodeId: string): Promise<{ id: string }>;
   setStepStatus(stepId: string, patch: StepPatch): Promise<void>;
   appendLog(runId: string, entry: LogInput): Promise<void>;
+  /**
+   * Steps that already succeeded on an earlier attempt at this run.
+   *
+   * This is what makes an approval gate resumable: the run comes back from the
+   * queue, rebuilds its context from these outputs, and carries on from the
+   * gate rather than redoing work (and re-spending tokens).
+   */
+  loadCompletedSteps(runId: string): Promise<CompletedStep[]>;
+  /** A step for this node that has not finished — reused instead of duplicated. */
+  findOpenStep(runId: string, nodeId: string): Promise<{ id: string } | null>;
 }
 
 // ────────────────────────────── Prisma-backed ───────────────────────────────
@@ -157,6 +172,22 @@ export class PrismaRunStore implements RunStore {
         ...(patch.startedAt ? { startedAt: patch.startedAt } : {}),
         ...(patch.endedAt ? { endedAt: patch.endedAt } : {}),
       },
+    });
+  }
+
+  async loadCompletedSteps(runId: string): Promise<CompletedStep[]> {
+    const rows = await this.prisma.runStep.findMany({
+      where: { runId, status: "succeeded" },
+      orderBy: { startedAt: "asc" },
+      select: { nodeId: true, output: true },
+    });
+    return rows.map((row) => ({ nodeId: row.nodeId, output: row.output }));
+  }
+
+  async findOpenStep(runId: string, nodeId: string): Promise<{ id: string } | null> {
+    return this.prisma.runStep.findFirst({
+      where: { runId, nodeId, status: { in: ["pending", "running"] } },
+      select: { id: true },
     });
   }
 

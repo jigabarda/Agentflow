@@ -162,6 +162,10 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
       columnId: z.string().optional().describe("Move the card to this column"),
       comment: z.string().optional().describe("Posted to the card's timeline, interpolatable"),
       addLabels: z.array(z.string()).default([]),
+      priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+      prNumber: interpolatable("e.g. {{ nodes.pr.output.prNumber }}").optional(),
+      prUrl: interpolatable("e.g. {{ nodes.pr.output.prUrl }}").optional(),
+      taskId: z.string().optional().describe("Defaults to the card that started this run"),
     }),
     inputs: ["trigger.task"],
     outputs: ["task"],
@@ -187,7 +191,10 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
     phase: "mvp",
     description: "Parks the run and puts Approve / Reject on the card. Use before anything risky.",
     configSchema: z.object({
-      columnId: z.string().describe("Column the card waits in"),
+      columnId: z
+        .string()
+        .optional()
+        .describe("Column the card waits in. Blank = the board's first waiting column"),
       message: z.string().describe("What you are being asked to approve"),
       showDiff: z.boolean().default(true),
       timeoutHours: z

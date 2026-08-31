@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { startColumnAutomation } from "@/data/automation";
 import { ColumnEntryRejected, moveTask } from "@/data/tasks";
 
 const moveSchema = z.object({
@@ -25,7 +26,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   try {
     const result = await moveTask(id, parsed.data);
-    return NextResponse.json(result);
+
+    // Rule 1 of docs/BOARD.md: entering a column with a pipeline starts a run.
+    // Reordering inside the same column is not an entry, so it starts nothing.
+    const entered = result.fromColumnId !== result.task.columnId;
+    const automation = entered
+      ? await startColumnAutomation(result.task, result.task.columnId)
+      : null;
+
+    return NextResponse.json({
+      ...result,
+      ...(automation?.started ? { runId: automation.runId } : {}),
+      // The card moved either way; this says whether anything started.
+      ...(automation && !automation.started && automation.blocked
+        ? { automationError: automation.reason }
+        : {}),
+    });
   } catch (error) {
     if (error instanceof ColumnEntryRejected) {
       return NextResponse.json({ error: error.reason }, { status: 409 });
