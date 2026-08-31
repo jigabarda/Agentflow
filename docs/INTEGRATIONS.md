@@ -14,25 +14,46 @@ Access via **Octokit** (`@octokit/rest`) behind a `GitHubClient` interface. Auth
 - **Issues: read** (write if the Triager sets labels).
 - **Checks/Actions: read** — poll check-runs for the test gate.
 
-### `GitHubClient` interface (mockable)
+### Two interfaces, not one
+
+The API and the working tree are separate concerns, so they are separate interfaces (`worker/src/github/`). Committing through the API would mean uploading blobs we already have on disk and would lose the agent's actual working tree — so anything touching files is local git.
 
 ```ts
+// The API. Real impl = Octokit; test impl = MockGitHubClient.
 export interface GitHubClient {
-  getIssue(repo: string, number: number): Promise<Issue>;
-  createBranch(repo: string, name: string, fromSha: string): Promise<{ ref: string }>;
+  getIssue(repo: string, issueNumber: number): Promise<GitHubIssue>;
   getRef(repo: string, ref: string): Promise<{ sha: string }>;
-  commitAndPush(repo: string, branch: string, dir: string, message: string): Promise<{ sha: string }>;
-  openPr(repo: string, p: { head: string; base: string; title: string; body: string }): Promise<{ number: number; url: string }>;
+  getDefaultBranch(repo: string): Promise<string>;
+  openPullRequest(repo: string, p: { head; base; title; body? }): Promise<{ number; url }>;
   listChecks(repo: string, ref: string): Promise<CheckRun[]>;
-  mergePr(repo: string, number: number, method: "merge"|"squash"|"rebase"): Promise<{ sha: string }>;
+  mergePullRequest(repo: string, prNumber: number, method): Promise<{ merged; sha }>;
+}
+
+// The working tree. Real impl = LocalGit (git via execFile); test impl = MockGit.
+export interface GitOps {
+  clone(input: { repo; dir; ref?; depth? }): Promise<{ headSha: string }>;
+  createBranch(dir: string, branch: string): Promise<void>;
+  hasChanges(dir: string): Promise<boolean>;
+  commitAll(dir, message, identity): Promise<{ sha: string } | null>;  // null = nothing to commit
+  push(dir: string, branch: string): Promise<void>;
+  headSha(dir: string): Promise<string>;
 }
 ```
 
-- Real impl = Octokit. Test impl = an in-memory mock recording calls + returning scripted responses.
-- **Payload mappers are pure + unit-tested** (`core/github/mappers.ts`): GitHub issue JSON → `{{ trigger.issue }}` shape; node config → Octokit params. Test edge cases: missing body, no labels, unicode titles.
+- **Payload mappers are pure + unit-tested** (`packages/core/src/github/mappers.ts`): GitHub issue JSON → `{{ trigger.issue }}` shape; node config → Octokit params; check runs → a verdict. Edge cases covered: missing body, no labels, deleted author, unicode titles, pasted clone URLs.
+- The token is resolved **per call** (`createLazyGitHub`), not held at startup — so adding it in the UI works without restarting the worker.
 
-### Git operations
-`clone-repo` / `commit-changes` do the actual git in the workspace via **simple-git** or the agent's Bash tool. Push authenticates with the same token (via an Anthropic-side... no — via a credential helper or an authenticated remote URL; keep the token out of the workspace filesystem where possible, inject at push time).
+### Where the token goes (and does not go)
+
+The agent can read every file in the run workspace, so the token must never land there:
+
+- the remote is a plain `https://github.com/owner/name.git` — **nothing secret in `.git/config`**;
+- auth is an `http.<url>.extraheader` passed through **`GIT_CONFIG_COUNT` / `GIT_CONFIG_KEY_0` / `GIT_CONFIG_VALUE_0` environment variables** — so it is not in `argv` either, where `ps` could read it, and never written to disk;
+- the commit identity goes through `GIT_AUTHOR_*` / `GIT_COMMITTER_*` env vars, so no config is written into the workspace;
+- every git command line and every git error is passed through `redact()` before it can reach a log, scrubbing both the raw token and its base64 Basic form;
+- `GIT_TERMINAL_PROMPT=0` and an empty `GIT_ASKPASS`, so a missing credential fails fast instead of hanging a run on a prompt no one can answer.
+
+Repo names are also path input: `clone-repo` resolves `<workspace>/<name>` and re-checks containment, because `owner/..` is a legal-looking repo string.
 
 ### Tests = GitHub Actions (not our sandbox)
 We do **not** host a code-execution sandbox. After the agent pushes a branch, the **target repo's own GitHub Actions** run its tests. The `wait-for-checks` node polls `listChecks(repo, headSha)` until all `requiredChecks` conclude, then returns `success` / `failure` / `timed_out`. The `merge-pr` node refuses to merge unless the required checks are green.

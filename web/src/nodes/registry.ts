@@ -281,6 +281,10 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
     configSchema: z.object({
       repo: interpolatable("owner/name"),
       ref: interpolatable("Commit SHA or branch"),
+      requiredChecks: z
+        .array(z.string())
+        .optional()
+        .describe("Only these checks gate the run. Blank = every check must pass."),
       timeoutSec: z.number().int().positive().default(1800),
     }),
     inputs: [],

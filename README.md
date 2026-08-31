@@ -60,7 +60,7 @@ The agent reads [CLAUDE.md](CLAUDE.md) (auto-loaded) for the rules, then works t
 | 2 | Pipeline editor (React Flow canvas) | Build/config/save/reload a pipeline (E2E) |
 | 3 | 🗂 **Task board (Kanban)** | Add/drag/edit cards; survives reload; keyboard-only works |
 | 4 | Execution engine core (runner) | Echo pipeline runs end-to-end via the queue |
-| 5 | Agent node (Claude Agent SDK) | Agent runs in isolated workspace; tool use gated |
+| 5 | Agent node (pluggable runners: Claude, Ollama, any OpenAI-compatible) | Agent runs in isolated workspace; tool use gated |
 | 6 | GitHub nodes (issue/branch/commit/PR) | Handlers produce correct API calls (mocked) |
 | 7 | 🎯 **Golden loop: drag a card → agents → PR → card moves** | **MVP** — the board runs itself |
 | 8 | Multi-agent team (triage/plan/implement/review) | Conditional routing + bounded review loop; planner creates subtask cards |

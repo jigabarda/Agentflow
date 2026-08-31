@@ -15,6 +15,7 @@
   "dependencies": {
     "@agentflow/core": "*",
     "@anthropic-ai/claude-agent-sdk": "^0.3.235",
+    "@octokit/rest": "^22.0.1",
     "@prisma/client": "^6.2.1",
     "zod": "^4.1.5"
   },
