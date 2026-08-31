@@ -109,14 +109,53 @@ AgentFlow runs **AI agents that execute code and hold your tokens**. Before poin
 
 ---
 
-## Manual dev commands (once scaffolded)
+## Quickstart — self-host with Docker
 
 ```bash
-npm test              # unit tests across web/worker/core
-npm run lint
-npm run dev:web       # the editor + dashboard on localhost:3000
-npm run dev:worker    # the execution engine
-npm run e2e           # Playwright flows
+cp .env.example .env
+
+# A 32-byte key. AES-256 accepts no other length, and AgentFlow will not
+# store a secret without one.
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# …paste that into SECRETS_ENC_KEY in .env
+
+docker compose up
 ```
 
-> `web/`, `worker/`, `packages/core/`, and these scripts don't exist yet — **Phase 0 creates them.**
+Then open **http://127.0.0.1:3000** — the board.
+
+1. **Add your tokens** at `/settings/secrets`. `GITHUB_TOKEN` is the one that matters: repo + pull-request permissions on the repos you want worked on. Tokens are encrypted at rest and never shown again once saved.
+2. **Seed the golden loop** — the card-to-PR pipeline — choosing the provider and model you want. There is no default model, deliberately:
+   ```bash
+   BOARD=$(curl -s http://127.0.0.1:3000/api/boards | node -e "process.stdin.on('data',d=>console.log(JSON.parse(d)[0].id))")
+
+   curl -s -X POST "http://127.0.0.1:3000/api/boards/$BOARD/golden-loop"      -H 'content-type: application/json'      -d '{"repo":"you/your-repo","provider":"ollama","model":"qwen2.5-coder"}'
+   ```
+   Use `"provider":"claude"` with a Claude model, or any OpenAI-compatible endpoint, if you prefer.
+3. **Give that pipeline its model credential** in the editor's *Connections* panel (`/pipelines`). A local Ollama needs only a base URL — no key, no account.
+4. **Drag a card into "In progress."** The crew clones the repo, implements the card, opens a PR, and the card moves itself to Review with the PR attached.
+
+Stop with `docker compose down`. Your board and the agents' workspaces are on named volumes, so they survive it.
+
+### What runs, and where the state lives
+
+| | |
+|---|---|
+| `web` | The board, the editor, the API. Published on **127.0.0.1 only** — it holds tokens that can push to your repositories. |
+| `worker` | The execution engine and scheduler. No port at all. |
+| `agentflow-db` volume | The SQLite database. |
+| `agentflow-workspaces` volume | Per-run clones. A run parked at an approval gate finds its work again here after a restart. |
+
+## Manual dev commands (without Docker)
+
+```bash
+npm install
+npx prisma migrate deploy
+
+npm test              # unit + integration across web/worker/core
+npm run lint
+npm run typecheck
+npm run e2e           # Playwright
+npm run dev:web       # the board + editor on localhost:3000
+npm run dev:worker    # the execution engine
+```

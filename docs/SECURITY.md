@@ -123,3 +123,60 @@ why anything outward or destructive belongs behind an approval gate.
 never sent back to the browser, not even masked; the UI shows that one is set
 and offers to replace or remove it. Rotation re-encrypts rather than reusing
 ciphertext. AI provider keys are not here at all — those are per-pipeline.
+
+---
+
+## Operator checklist
+
+Read this before pointing AgentFlow at a repository you care about.
+
+### The trust boundary, in one paragraph
+
+AgentFlow runs **AI agents that write and execute code**, in a process that
+**holds a GitHub token able to push to your repositories**. The model is not a
+trusted party: it reads issue text, card bodies and repository contents, any of
+which can contain instructions aimed at it. The things that keep that safe are
+the workspace confinement, the tool allowlist, the approval gates and the fact
+that nothing is exposed to the network. Weaken any one of them and the others
+are doing more work than they were designed for.
+
+### Before a live run
+
+- [ ] **`SECRETS_ENC_KEY` is set, and is 32 bytes.** Without it nothing can be
+      stored encrypted. Losing it means re-entering every token; leaking it
+      means every stored token is readable.
+- [ ] **The GitHub token is the narrowest that works.** A fine-grained PAT
+      scoped to the repositories the agents may touch — not an account-wide
+      classic token. Contents and pull-requests read/write; issues read.
+- [ ] **Nothing is published beyond loopback.** The compose file binds web to
+      `127.0.0.1` on purpose. If you need it on another machine, put it behind
+      something that authenticates — never on `0.0.0.0`.
+- [ ] **An approval gate sits before anything outward.** Merging and deploying
+      are the obvious ones. Remember that an interrupted step is at-least-once,
+      so an ungated outward node can happen twice.
+- [ ] **A token cap is set on any pipeline with an agent in it**
+      (`maxTokensPerRun`). A loop that cannot settle is the failure mode that
+      costs money quietly.
+- [ ] **The reviewer, planner and triager keep read-only tools.** Only the
+      implementer should be able to write files.
+- [ ] **Try it on a throwaway repository first.** Every provider integration in
+      this project is verified against mocks and fixtures, not a live account.
+
+### What is not defended against
+
+Stated plainly, because a checklist that implies more than it delivers is worse
+than none:
+
+- **Prompt injection is mitigated, not solved.** A malicious issue body can
+  instruct an agent. The tool allowlist and the workspace boundary limit what it
+  could then do; they do not stop it trying, and a read-only agent can still be
+  made to report something misleading.
+- **The workspace is a directory, not a sandbox.** Confinement is enforced on
+  the paths a tool is given. An agent granted `Bash` on the Claude runner can
+  run arbitrary commands as the worker user — which is why `Bash` is not in any
+  shipped role preset, and why the container runs as a non-root user.
+- **A single-user app with no authentication.** There are no accounts and no
+  authorisation checks: anyone who can reach the port can do anything the app
+  can do. That is the design, and it is why the port is on loopback.
+- **No egress filtering.** The `http-request` node will call whatever URL it is
+  configured with.

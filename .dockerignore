@@ -1,0 +1,30 @@
+# Everything the image builds for itself, or must never contain.
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+
+# Secrets and local state. The container gets its env at run time and its
+# database from a volume — neither belongs in an image layer.
+.env
+.env.local
+.env.*.local
+*.db
+*.db-journal
+prisma/*.db
+prisma/.tmp
+
+# Test output and scratch
+coverage
+test-results
+playwright-report
+blob-report
+.workspaces
+
+.git
+.github
+**/*.test.ts
+**/*.test.tsx
+web/e2e

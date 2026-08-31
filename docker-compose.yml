@@ -1,0 +1,80 @@
+# AgentFlow, self-hosted.
+#
+#   cp .env.example .env   # then fill in SECRETS_ENC_KEY
+#   docker compose up
+#
+# Two services and two volumes. The database is a file, so it lives on a volume
+# rather than in a layer; the agents' workspaces live on another, because a run
+# parked at an approval gate must still find its clone when you come back to it.
+#
+# There is no port exposed for the worker and no service exposed beyond
+# localhost: AgentFlow is single-user and self-hosted, and it holds tokens that
+# can push to your repositories (docs/SECURITY.md).
+
+services:
+  # One shot: bring the database up to date, then exit. Both services wait for
+  # it to succeed, so neither races the schema and neither has to carry the
+  # Prisma CLI. `migrate deploy` does nothing when there is nothing pending,
+  # which makes it safe on every `up` — including the first, when the volume is
+  # empty and the database file does not exist yet.
+  migrate:
+    build:
+      context: .
+      target: worker
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: "file:/data/agentflow.db"
+    volumes:
+      - agentflow-db:/data
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      target: web
+    # Loopback only. Putting this on 0.0.0.0 would publish a board that can
+    # start agents holding your GitHub token.
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      # The schema lives at /app/prisma, so a relative URL resolves next to it.
+      DATABASE_URL: "file:/data/agentflow.db"
+      SECRETS_ENC_KEY: "${SECRETS_ENC_KEY:?set SECRETS_ENC_KEY in .env — see .env.example}"
+    volumes:
+      - agentflow-db:/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      # The board is the front door; if it renders, the app and its database
+      # are both up.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  worker:
+    build:
+      context: .
+      target: worker
+    environment:
+      DATABASE_URL: "file:/data/agentflow.db"
+      SECRETS_ENC_KEY: "${SECRETS_ENC_KEY:?set SECRETS_ENC_KEY in .env — see .env.example}"
+      # Optional: the encrypted store wins when a token is set in the UI.
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      GIT_COMMIT_NAME: "${GIT_COMMIT_NAME:-AgentFlow}"
+      GIT_COMMIT_EMAIL: "${GIT_COMMIT_EMAIL:-agentflow@localhost}"
+      AGENTFLOW_WORKSPACE_ROOT: /workspaces
+    volumes:
+      - agentflow-db:/data
+      - agentflow-workspaces:/workspaces
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  agentflow-db:
+  agentflow-workspaces:
