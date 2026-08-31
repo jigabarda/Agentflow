@@ -102,15 +102,27 @@ describe("read-issue", () => {
 });
 
 describe("clone-repo", () => {
-  it("clones into a directory named after the repo, inside the workspace", async () => {
+  it("clones into the workspace root, so the agent's directory IS the checkout", async () => {
+    // The bug this pins: with the repo in a subdirectory, an agent told it
+    // works in the workspace wrote its changes BESIDE the repo, and the commit
+    // found nothing to commit. Found by the first live run.
     const git = new MockGit({ headSha: "abc1234def" });
     const handler = createCloneRepoHandler(deps({ git }));
 
     const output = await handler.run(context(), { repo: "o/r" }, node);
 
-    expect(output.path).toBe(path.resolve(workspace.dir, "r"));
+    expect(output.path).toBe(workspace.dir);
     expect(output.headSha).toBe("abc1234def");
-    expect(git.firstCallTo("clone").args[0]).toEqual({ repo: "o/r", dir: output.path });
+    expect(git.firstCallTo("clone").args[0]).toEqual({ repo: "o/r", dir: workspace.dir });
+  });
+
+  it("clones into a named subdirectory when one is configured", async () => {
+    const git = new MockGit();
+    const handler = createCloneRepoHandler(deps({ git }));
+
+    const output = await handler.run(context(), { repo: "o/r", dir: "second-repo" }, node);
+
+    expect(output.path).toBe(path.resolve(workspace.dir, "second-repo"));
   });
 
   it("passes a configured ref through", async () => {
@@ -131,10 +143,11 @@ describe("clone-repo", () => {
     expect(git.firstCallTo("clone").args[0]).not.toHaveProperty("ref");
   });
 
-  it("refuses a repo name that would escape the workspace", async () => {
-    // parseRepo allows dots, so "o/.." reaches the path layer.
+  it("refuses a directory that would escape the workspace", async () => {
     const handler = createCloneRepoHandler(deps());
-    await expect(handler.run(context(), { repo: "o/.." }, node)).rejects.toThrow(NodeFailure);
+    await expect(
+      handler.run(context(), { repo: "o/r", dir: "../../elsewhere" }, node),
+    ).rejects.toThrow(NodeFailure);
   });
 
   it("rejects a malformed repo before touching git", async () => {
@@ -160,10 +173,7 @@ describe("create-branch", () => {
     );
 
     expect(output).toEqual({ branch: "task/fix-login" });
-    expect(git.firstCallTo("createBranch").args).toEqual([
-      path.resolve(workspace.dir, "r"),
-      "task/fix-login",
-    ]);
+    expect(git.firstCallTo("createBranch").args).toEqual([workspace.dir, "task/fix-login"]);
   });
 
   it("requires a branch name", async () => {
@@ -187,13 +197,12 @@ describe("commit-changes", () => {
 
     expect(output).toEqual({ commitSha: "c0ffee1234", pushed: true });
 
-    const dir = path.resolve(workspace.dir, "r");
     expect(git.firstCallTo("commitAll").args).toEqual([
-      dir,
+      workspace.dir,
       "Implement it",
       { name: "AgentFlow", email: "agentflow@localhost" },
     ]);
-    expect(git.firstCallTo("push").args).toEqual([dir, "task/1"]);
+    expect(git.firstCallTo("push").args).toEqual([workspace.dir, "task/1"]);
   });
 
   it("fails rather than pushing an empty branch when the agent changed nothing", async () => {

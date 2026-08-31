@@ -240,6 +240,10 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
     configSchema: z.object({
       repo: interpolatable("owner/name"),
       ref: z.string().optional().describe("Branch or SHA to start from"),
+      dir: z
+        .string()
+        .optional()
+        .describe("Blank = the run workspace itself, so the agent works in the checkout"),
     }),
     inputs: [],
     outputs: ["path", "headSha"],
@@ -254,6 +258,7 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
       repo: interpolatable("owner/name"),
       branchName: interpolatable("e.g. task/{{ trigger.task.id }}"),
       fromRef: z.string().optional(),
+      dir: z.string().optional().describe("The checkout to branch in. Blank = the workspace"),
     }),
     inputs: [],
     outputs: ["branch"],
@@ -268,6 +273,7 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
       repo: interpolatable("owner/name"),
       branch: interpolatable("Branch to push"),
       message: interpolatable("Commit message"),
+      dir: z.string().optional().describe("The checkout to commit. Blank = the workspace"),
     }),
     inputs: [],
     outputs: ["commitSha", "pushed"],

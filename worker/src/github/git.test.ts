@@ -40,10 +40,11 @@ function recorder(result: Partial<Record<string, string>> = {}) {
 
 describe("LocalGit — where the token goes", () => {
   it("keeps the token out of the remote URL, so nothing secret lands in .git/config", async () => {
-    const { at, exec } = recorder({ "rev-parse": "abc123\n" });
+    const { calls, exec } = recorder({ "rev-parse": "abc123\n" });
     await new LocalGit(TOKEN, { exec }).clone({ repo: "o/r", dir: "/ws/r" });
 
-    const clone = at(0);
+    // The first command probes for an existing checkout; the clone follows.
+    const clone = calls.find((call) => call.args[0] === "clone")!;
     expect(clone.args).toContain("https://github.com/o/r.git");
     expect(clone.args.some((arg) => arg.includes(TOKEN))).toBe(false);
   });
@@ -116,10 +117,10 @@ describe("LocalGit — where the token goes", () => {
 
 describe("LocalGit — commands", () => {
   it("clones shallow by default and checks out a ref when given one", async () => {
-    const { at, exec } = recorder({ "rev-parse": "abc\n" });
+    const { calls, exec } = recorder({ "rev-parse": "abc\n" });
     await new LocalGit(TOKEN, { exec }).clone({ repo: "o/r", dir: "/ws/r", ref: "develop" });
 
-    expect(at(0).args).toEqual([
+    expect(calls.find((call) => call.args[0] === "clone")!.args).toEqual([
       "clone",
       "--quiet",
       "--depth",
@@ -132,10 +133,10 @@ describe("LocalGit — commands", () => {
   });
 
   it("clones with full history when depth is 0", async () => {
-    const { at, exec } = recorder({ "rev-parse": "abc\n" });
+    const { calls, exec } = recorder({ "rev-parse": "abc\n" });
     await new LocalGit(TOKEN, { exec }).clone({ repo: "o/r", dir: "/ws/r", depth: 0 });
 
-    expect(at(0).args).not.toContain("--depth");
+    expect(calls.find((call) => call.args[0] === "clone")!.args).not.toContain("--depth");
   });
 
   it("reports a clean tree as having no changes", async () => {
