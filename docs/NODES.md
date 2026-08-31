@@ -47,7 +47,17 @@ Returns its interpolated config. Exists to prove the engine end-to-end without a
 - **Config:** `{ value: string }` · **Output:** `{ value: <interpolated> }`.
 
 ### `condition` — 🔵
-Routes execution by evaluating a variable/expression; the runner follows the matching `sourceHandle`.
+Routes execution by evaluating a value; the runner follows the matching `sourceHandle` and **skips** the branches it did not take.
+- **Config:** `{ expression, cases?: string[], default?: string }` — `expression` is interpolated, usually from an agent (`{{ nodes.review.output.result }}`).
+- **Output:** `{ branch, matched, value }`. The runner routes on `branch`; any node may steer by returning one.
+- Matching is deliberately forgiving, because the value comes from a model: case and whitespace are ignored, and a case matches if it appears **anywhere** in the value, so "CHANGES — the test is missing" routes to `CHANGES`. The first case listed wins, so put the more specific one first. Nothing matching takes `default`.
+- With no `cases` at all, the value itself is the handle — for an agent told to answer in one word.
+
+### Loops (the reviewer sending work back)
+An edge may be marked `loop: true`, which is the only cycle a pipeline may contain. Everything else stays a validation error, because nothing would bound it.
+- The loop edge names where to go back to (`verdict --CHANGES--> implement`) and carries `maxIterations` (default 3).
+- Going back genuinely **re-runs** that region: the target and everything after it are reset, so the reviewer sees the implementer's new work, not its old output. Work *before* the loop is untouched — the planner does not re-plan, and its subtask cards are not created twice.
+- At the cap the run **fails**, with the node and the limit named in the log. It never gives up quietly and never carries on as though the reviewer had approved.
 - **Config:** `{ expression: string, cases: [{ handle: string, equals: string }], default: string }`.
 - **Output:** `{ matched: <handle> }`; the runner enqueues only successors on that handle.
 - Example: route by `{{ trigger.issue.labels }}` or `{{ nodes.reviewer.output.verdict }}`.

@@ -1,5 +1,6 @@
 import { createAgentHandler, type AgentHandlerDeps } from "./agent";
 import { createBoardHandlers, type BoardHandlerDeps } from "./board/index";
+import { createConditionHandler, type ConditionDeps } from "./condition";
 import { echo } from "./echo";
 import { createGitHubHandlers, type GitHubHandlerDeps } from "./github/index";
 import { manualTrigger } from "./manualTrigger";
@@ -19,6 +20,8 @@ export interface HandlerDeps {
   github?: GitHubHandlerDeps;
   /** Omit to build a registry with no board nodes — used by engine tests. */
   board?: BoardHandlerDeps;
+  /** Routing between branches. Omit and a pipeline cannot use `condition`. */
+  condition?: ConditionDeps;
 }
 
 export function createHandlerRegistry(deps: HandlerDeps = {}): Map<string, NodeHandler> {
@@ -36,6 +39,10 @@ export function createHandlerRegistry(deps: HandlerDeps = {}): Map<string, NodeH
     handlers.push(...createBoardHandlers(deps.board));
   }
 
+  if (deps.condition) {
+    handlers.push(createConditionHandler(deps.condition) as NodeHandler);
+  }
+
   return new Map(handlers.map((handler) => [handler.type, handler]));
 }
 
@@ -44,3 +51,4 @@ export { NodeFailure, RunPaused } from "./types";
 export type { AgentHandlerDeps } from "./agent";
 export type { GitHubHandlerDeps } from "./github/index";
 export type { BoardHandlerDeps } from "./board/index";
+export type { ConditionDeps } from "./condition";

@@ -23,6 +23,13 @@ export function FlowNodeView({ id, data, selected }: NodeProps<FlowNodeType>) {
 
   const isTrigger = type?.category === "trigger";
 
+  /**
+   * A branching node needs one NAMED handle per case, or React Flow cannot
+   * attach the edge at all — the branch would simply not be drawn, and the
+   * canvas would show a pipeline that is not the one that runs.
+   */
+  const branches = branchHandlesFor(data);
+
   return (
     <div
       data-testid={`node-${id}`}
@@ -49,9 +56,39 @@ export function FlowNodeView({ id, data, selected }: NodeProps<FlowNodeType>) {
         </div>
       )}
 
-      <Handle type="source" position={Position.Right} />
+      {branches.length === 0 ? (
+        <Handle type="source" position={Position.Right} />
+      ) : (
+        branches.map((branch, index) => (
+          <Handle
+            key={branch}
+            id={branch}
+            type="source"
+            position={Position.Right}
+            // Spread the handles down the right edge so both are reachable.
+            style={{ top: `${((index + 1) / (branches.length + 1)) * 100}%` }}
+          >
+            <span className="pointer-events-none absolute left-3 -top-2 whitespace-nowrap text-[9px] text-neutral-500">
+              {branch}
+            </span>
+          </Handle>
+        ))
+      )}
     </div>
   );
+}
+
+/** The handle names a condition node routes on: its cases, plus its default. */
+function branchHandlesFor(data: FlowNodeType["data"]): string[] {
+  if (data.typeId !== "condition") return [];
+
+  const config = (data.config ?? {}) as { cases?: unknown; default?: unknown };
+  const cases = Array.isArray(config.cases) ? config.cases.map(String).filter(Boolean) : [];
+  const fallback = typeof config.default === "string" ? config.default : "";
+
+  const handles = [...cases];
+  if (fallback && !handles.includes(fallback)) handles.push(fallback);
+  return handles;
 }
 
 export const nodeTypes = { agentflow: FlowNodeView };

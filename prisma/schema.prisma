@@ -162,6 +162,11 @@ model PipelineEdge {
   target       String
   /// For conditional branches (e.g. "true" / "false").
   sourceHandle String?
+  /// A deliberate way back to an earlier node — the reviewer loop. Every other
+  /// cycle stays a validation error, because nothing would bound it.
+  loop         Boolean @default(false)
+  /// How many times this loop may be taken before the run fails. Null = the default.
+  maxIterations Int?
 
   pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
 

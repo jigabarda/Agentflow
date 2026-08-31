@@ -30,6 +30,7 @@ export type GraphIssueCode =
   | "no-trigger"
   | "multiple-triggers"
   | "cycle"
+  | "loop-not-backwards"
   | "agent-missing-model"
   | "unknown-agent-profile";
 
@@ -139,13 +140,32 @@ export function validateGraph(
     }
   }
 
-  // 4. acyclic
-  for (const nodeId of findCycleNodes(nodes, edges)) {
+  // 4. acyclic once the deliberate loops are set aside.
+  //
+  // A `loop` edge is how a reviewer sends work back to the implementer, and it
+  // is bounded at run time. Every OTHER cycle is still an error: an accidental
+  // one has no limit and would spin forever.
+  const forwardEdges = edges.filter((edge) => !edge.loop);
+  for (const nodeId of findCycleNodes(nodes, forwardEdges)) {
     issues.push({
       code: "cycle",
-      message: `Node "${nodeId}" is part of a cycle; pipelines must be acyclic.`,
+      message: `Node "${nodeId}" is part of a cycle; pipelines must be acyclic. Mark the edge that goes back as a loop if that is what you meant.`,
       nodeId,
     });
+  }
+
+  // A loop edge must actually go backwards, or it is just a mislabelled edge
+  // and nothing would ever bound it.
+  const reachable = forwardReachability(nodes, forwardEdges);
+  for (const edge of edges) {
+    if (!edge.loop) continue;
+    if (!reachable.get(edge.target)?.has(edge.source)) {
+      issues.push({
+        code: "loop-not-backwards",
+        message: `Edge "${edge.id}" is marked as a loop, but "${edge.target}" does not lead to "${edge.source}". A loop has to go back to an earlier node.`,
+        edgeId: edge.id,
+      });
+    }
   }
 
   // 5. every agent node has a provider AND a model — no defaults, ever
@@ -267,4 +287,35 @@ export function topologicalOrder(pipeline: Pick<Pipeline, "nodes" | "edges">): P
   }
 
   return order;
+}
+
+/**
+ * For each node, everything reachable from it. Used to check that a loop edge
+ * genuinely points back at an ancestor.
+ */
+function forwardReachability(
+  nodes: readonly PipelineNode[],
+  edges: readonly { source: string; target: string }[],
+): Map<string, Set<string>> {
+  const outgoing = new Map<string, string[]>();
+  for (const node of nodes) outgoing.set(node.id, []);
+  for (const edge of edges) outgoing.get(edge.source)?.push(edge.target);
+
+  const result = new Map<string, Set<string>>();
+
+  for (const node of nodes) {
+    const seen = new Set<string>();
+    const queue = [...(outgoing.get(node.id) ?? [])];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (seen.has(current)) continue;
+      seen.add(current);
+      queue.push(...(outgoing.get(current) ?? []));
+    }
+
+    result.set(node.id, seen);
+  }
+
+  return result;
 }

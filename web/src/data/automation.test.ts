@@ -1,9 +1,12 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it } from "vitest";
+import { validateGraph } from "@agentflow/core";
 import { startColumnAutomation, startRunForTask, triggerPayloadFor } from "./automation";
 import { createBoard, updateColumn } from "./boards";
+import { seedCrew } from "./crew";
 import { prisma } from "./client";
 import { seedGoldenLoop } from "./goldenLoop";
+import { getPipeline } from "./pipelines";
 import { setProviderCredential } from "./secrets";
 import { createTask, listTaskEvents } from "./tasks";
 import { resetDatabase } from "./testing";
@@ -228,5 +231,122 @@ describe("seedGoldenLoop", () => {
     await updateColumn(byKind.backlog!.id, { pipelineId: loop.pipelineId });
 
     expect((await startColumnAutomation(task, byKind.backlog!.id)).started).toBe(true);
+  });
+});
+
+describe("the crew seed", () => {
+  async function seedCrewBoard() {
+    const board = await createBoard("Crew board");
+    const byKind = Object.fromEntries(board.columns.map((column) => [column.kind, column]));
+
+    const crew = await seedCrew({
+      boardId: board.id,
+      repo: "jigabarda/Agentflow",
+      provider: "ollama",
+      models: {
+        triager: "qwen2.5-coder",
+        planner: "qwen2.5-coder",
+        implementer: "deepseek-coder-v2",
+        reviewer: "qwen2.5-coder",
+      },
+    });
+
+    return { board, byKind, crew };
+  }
+
+  it("builds all four roles, each with the model it was given", async () => {
+    const { crew } = await seedCrewBoard();
+    const nodes = await prisma.pipelineNode.findMany({
+      where: { pipelineId: crew.pipelineId, type: "agent" },
+    });
+
+    const models = Object.fromEntries(
+      nodes.map((node) => [node.id, (node.config as { model?: string }).model]),
+    );
+    expect(models).toEqual({
+      triage: "qwen2.5-coder",
+      plan: "qwen2.5-coder",
+      implement: "deepseek-coder-v2",
+      review: "qwen2.5-coder",
+    });
+  });
+
+  it("marks the reviewer's way back as a loop, with a cap", async () => {
+    const { crew } = await seedCrewBoard();
+    const loop = await prisma.pipelineEdge.findFirst({
+      where: { pipelineId: crew.pipelineId, loop: true },
+    });
+
+    expect(loop).toMatchObject({ source: "verdict", target: "implement", sourceHandle: "CHANGES" });
+    expect(loop?.maxIterations).toBe(2);
+  });
+
+  it("produces a graph the validator accepts", async () => {
+    const { crew } = await seedCrewBoard();
+    const pipeline = await getPipeline(crew.pipelineId);
+
+    // A loop edge must not read as a cycle.
+    expect(validateGraph(pipeline!).valid).toBe(true);
+  });
+
+  it("defaults an unparseable verdict to more work, never to shipping", async () => {
+    const { crew } = await seedCrewBoard();
+    const verdict = await prisma.pipelineNode.findUnique({
+      where: { pipelineId_id: { pipelineId: crew.pipelineId, id: "verdict" } },
+    });
+
+    expect((verdict?.config as { default?: string }).default).toBe("CHANGES");
+  });
+
+  it("keeps the reviewer unable to edit files", async () => {
+    const { crew } = await seedCrewBoard();
+    const reviewer = await prisma.pipelineNode.findUnique({
+      where: { pipelineId_id: { pipelineId: crew.pipelineId, id: "review" } },
+    });
+
+    const tools = (reviewer?.config as { allowedTools?: string[] }).allowedTools ?? [];
+    expect(tools).not.toContain("Write");
+    expect(tools).not.toContain("Edit");
+  });
+
+  it("sends the planner's subtasks to the backlog", async () => {
+    const { byKind, crew } = await seedCrewBoard();
+    const subtasks = await prisma.pipelineNode.findUnique({
+      where: { pipelineId_id: { pipelineId: crew.pipelineId, id: "subtasks" } },
+    });
+
+    expect((subtasks?.config as { columnId?: string }).columnId).toBe(byKind.backlog!.id);
+  });
+});
+
+describe("the reviewer's brief", () => {
+  it("is handed the implementer's report from THIS pipeline", async () => {
+    // The preset cannot know the node id; the seed must supply it, or the
+    // reviewer would be reviewing an empty string.
+    const board = await createBoard("Wiring");
+    const crew = await seedCrew({
+      boardId: board.id,
+      repo: "o/r",
+      provider: "ollama",
+      models: {
+        triager: "m",
+        planner: "m",
+        implementer: "m",
+        reviewer: "m",
+      },
+    });
+
+    const reviewer = await prisma.pipelineNode.findUnique({
+      where: { pipelineId_id: { pipelineId: crew.pipelineId, id: "review" } },
+    });
+    const prompt = (reviewer?.config as { prompt?: string }).prompt ?? "";
+
+    expect(prompt).toContain("{{ nodes.implement.output.result }}");
+    // The node it names must actually exist.
+    expect(
+      await prisma.pipelineNode.findUnique({
+        where: { pipelineId_id: { pipelineId: crew.pipelineId, id: "implement" } },
+      }),
+    ).not.toBeNull();
   });
 });
