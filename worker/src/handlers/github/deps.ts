@@ -23,22 +23,34 @@ export interface GitHubHandlerDeps {
 /**
  * Where a repo lives inside the run workspace.
  *
- * One clone per repo, in a directory named after it, so every later node can
- * find it from its own `repo` config with no wiring between nodes.
+ * By default: the workspace root itself, so **the agent's working directory IS
+ * the checkout**. That is not a detail — an agent is told it works in the run
+ * workspace, so if the repo sat in a subdirectory beside it, the agent would
+ * write its changes next to the repo rather than into it, and the commit would
+ * find nothing. (It did. That is why this is the default.)
+ *
+ * A pipeline that clones more than one repo gives each node an explicit `dir`,
+ * and then the agent has to be told which one to work in.
  */
-export function repoDirFor(context: RunContext, repo: string, nodeId: string): string {
-  const { repo: name } = parseRepo(repo);
-  const dir = path.resolve(context.workspaceDir, name);
+export function repoDirFor(
+  context: RunContext,
+  repo: string,
+  nodeId: string,
+  dir?: unknown,
+): string {
+  const configured = typeof dir === "string" ? dir.trim() : "";
+  if (!configured) return context.workspaceDir;
 
-  // parseRepo permits dots, so ".." reaches here. Nothing may escape the
-  // workspace, whatever the user typed (docs/SECURITY.md).
-  if (!isInsideWorkspace(context.workspaceDir, dir)) {
+  const resolved = path.resolve(context.workspaceDir, configured);
+
+  // Nothing may escape the workspace, whatever was typed (docs/SECURITY.md).
+  if (!isInsideWorkspace(context.workspaceDir, resolved)) {
     throw new NodeFailure(
-      `Node "${nodeId}": "${repo}" does not resolve to a path in the workspace.`,
+      `Node "${nodeId}": "${configured}" is not a path inside the run workspace.`,
     );
   }
 
-  return dir;
+  return resolved;
 }
 
 /**
@@ -53,6 +65,19 @@ export function requireNumber(value: unknown, field: string, nodeId: string): nu
     );
   }
   return parsed;
+}
+
+/**
+ * A required `owner/name`, validated.
+ *
+ * Checked here rather than left to git: a malformed slug becomes a nonsense
+ * URL, and "repository not found" is a far worse message than "that is not a
+ * repository".
+ */
+export function requireRepo(value: unknown, nodeId: string): string {
+  const repo = requireText(value, "repo", nodeId);
+  parseRepo(repo);
+  return repo;
 }
 
 /** Trim a required string config value, failing with the node named. */

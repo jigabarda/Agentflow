@@ -81,6 +81,14 @@ export class LocalGit implements GitOps {
   }
 
   async clone(input: CloneInput): Promise<{ headSha: string }> {
+    // A resumed run re-enters a workspace that already holds the checkout —
+    // and the agent's edits. Cloning over it would throw them away, so this is
+    // idempotent: an existing checkout is kept as it is.
+    if (await this.isRepo(input.dir)) {
+      this.log(`git clone skipped: ${input.dir} is already a checkout`);
+      return { headSha: await this.headSha(input.dir) };
+    }
+
     const args = ["clone", "--quiet"];
     if (input.depth !== 0) args.push("--depth", String(input.depth ?? 1));
     if (input.ref) args.push("--branch", input.ref);
@@ -88,6 +96,16 @@ export class LocalGit implements GitOps {
 
     await this.git(args);
     return { headSha: await this.headSha(input.dir) };
+  }
+
+  /** True when `dir` already contains a git checkout. */
+  private async isRepo(dir: string): Promise<boolean> {
+    try {
+      const { stdout } = await this.git(["rev-parse", "--is-inside-work-tree"], dir);
+      return stdout.trim() === "true";
+    } catch {
+      return false;
+    }
   }
 
   async createBranch(dir: string, branch: string): Promise<void> {

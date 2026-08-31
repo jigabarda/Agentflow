@@ -7,7 +7,13 @@ import {
 } from "@agentflow/core";
 import type { NodeHandler, NodeInfo } from "../types";
 import { NodeFailure } from "../types";
-import { repoDirFor, requireNumber, requireText, type GitHubHandlerDeps } from "./deps";
+import {
+  repoDirFor,
+  requireNumber,
+  requireRepo,
+  requireText,
+  type GitHubHandlerDeps,
+} from "./deps";
 
 /**
  * The GitHub nodes.
@@ -50,6 +56,8 @@ export function createReadIssueHandler(
 export interface CloneRepoConfig {
   repo: string;
   ref?: string;
+  /** Clone into this subdirectory instead of the workspace root. */
+  dir?: string;
 }
 
 export function createCloneRepoHandler(
@@ -58,8 +66,8 @@ export function createCloneRepoHandler(
   return {
     type: "clone-repo",
     async run(context, config, node) {
-      const repo = requireText(config.repo, "repo", node.id);
-      const dir = repoDirFor(context, repo, node.id);
+      const repo = requireRepo(config.repo, node.id);
+      const dir = repoDirFor(context, repo, node.id, config.dir);
       const ref =
         typeof config.ref === "string" && config.ref.trim() ? config.ref.trim() : undefined;
 
@@ -88,6 +96,8 @@ export interface CreateBranchConfig {
   repo: string;
   branchName: string;
   fromRef?: string;
+  /** The checkout to branch in. Defaults to the workspace root. */
+  dir?: string;
 }
 
 export function createCreateBranchHandler(
@@ -96,9 +106,9 @@ export function createCreateBranchHandler(
   return {
     type: "create-branch",
     async run(context, config, node) {
-      const repo = requireText(config.repo, "repo", node.id);
+      const repo = requireRepo(config.repo, node.id);
       const branch = requireText(config.branchName, "branchName", node.id);
-      const dir = repoDirFor(context, repo, node.id);
+      const dir = repoDirFor(context, repo, node.id, config.dir);
 
       // Local, not via the API: the branch has to exist in the working tree the
       // agent is about to edit, and an API-created branch would not.
@@ -121,6 +131,8 @@ export interface CommitChangesConfig {
   repo: string;
   branch: string;
   message: string;
+  /** The checkout to commit. Defaults to the workspace root. */
+  dir?: string;
 }
 
 export function createCommitChangesHandler(
@@ -129,10 +141,10 @@ export function createCommitChangesHandler(
   return {
     type: "commit-changes",
     async run(context, config, node) {
-      const repo = requireText(config.repo, "repo", node.id);
+      const repo = requireRepo(config.repo, node.id);
       const branch = requireText(config.branch, "branch", node.id);
       const message = requireText(config.message, "message", node.id);
-      const dir = repoDirFor(context, repo, node.id);
+      const dir = repoDirFor(context, repo, node.id, config.dir);
 
       const commit = await deps.git.commitAll(dir, message, deps.identity);
       if (!commit) {

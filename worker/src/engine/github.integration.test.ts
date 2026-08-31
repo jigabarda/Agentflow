@@ -1,4 +1,3 @@
-import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { MockAgentRunner } from "../agent/MockAgentRunner";
@@ -246,10 +245,8 @@ describe("issue → PR, through the real engine", () => {
 
     expect(agent.lastRequest?.prompt).toBe("Fix: Fix login redirect");
     expect(agent.lastRequest?.workspaceDir).toBe(workspace.dir);
-    // The clone landed inside that same workspace.
-    expect(git.firstCallTo("clone").args[0]).toMatchObject({
-      dir: path.resolve(workspace.dir, "r"),
-    });
+    // The clone IS the workspace: the agent edits the checkout it was given.
+    expect(git.firstCallTo("clone").args[0]).toMatchObject({ dir: workspace.dir });
   });
 
   it("stops at the failing node and never opens a PR when the agent changes nothing", async () => {
