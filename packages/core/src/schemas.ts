@@ -57,6 +57,10 @@ export const taskSchema = z.object({
   blockedBy: z.array(z.string().min(1)).default([]),
   dueAt: z.coerce.date().nullish(),
   recurrence: z.string().min(1).nullish(),
+  /** The timezone the recurrence is read in — "09:00" means 09:00 where you are. */
+  recurrenceTz: z.string().min(1).nullish(),
+  /** For a spawned child: the slot it was created for. */
+  scheduledFor: z.coerce.date().nullish(),
   templateId: z.string().min(1).nullish(),
   parentTaskId: z.string().min(1).nullish(),
   archivedAt: z.coerce.date().nullish(),
@@ -108,6 +112,7 @@ export const updateTaskInputSchema = taskSchema
     blockedBy: true,
     dueAt: true,
     recurrence: true,
+    recurrenceTz: true,
   })
   .partial();
 

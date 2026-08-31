@@ -29,8 +29,9 @@ Starts a run from a manual payload (used for testing + ad-hoc runs).
 
 ### `schedule-trigger` — 🔵 ⭐
 Runs on a clock with no card at all (nightly audit, morning digest).
-- **Config:** `{ cron: string, timezone: string }`.
-- **Output:** `{ scheduledFor: ISOString }`. Fired by the worker's scheduler; idempotent per slot.
+- **Config:** `{ cron: string, timezone: string }` — five-field cron, read in the named timezone.
+- **Output:** `{ scheduledFor: ISOString }`. Fired by the worker's scheduler; idempotent per slot, enforced by a unique index on `(pipelineId, scheduledFor)`.
+- The node itself does no work: the scheduler has already decided the run should exist, and this puts the slot into the run context so later nodes can say "the digest for `{{ nodes.trigger.output.scheduledFor }}`".
 
 ### `github-issue-trigger` — 🟢
 Starts a run from a GitHub issue (via webhook or manual "run on issue #N").

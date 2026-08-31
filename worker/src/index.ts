@@ -15,14 +15,18 @@ import { createBoardReconciler } from "./engine/board";
 import { runNextQueued } from "./engine/runner";
 import { createLazyGitHub } from "./github/lazy";
 import { createHandlerRegistry } from "./handlers/index";
+import { PrismaSchedulerStore } from "./scheduler/PrismaSchedulerStore";
+import { DEFAULT_TICK_MS, tick as schedulerTick } from "./scheduler/index";
 import { PrismaRunStore } from "./store";
 import { openRunWorkspace } from "./workspace/index";
 
 const POLL_INTERVAL_MS = Number(process.env.WORKER_POLL_MS ?? 1000);
+const SCHEDULER_TICK_MS = Number(process.env.SCHEDULER_TICK_MS ?? DEFAULT_TICK_MS);
 
 const prisma = new PrismaClient();
 const store = new PrismaRunStore(prisma);
 const board = new PrismaBoardStore(prisma);
+const scheduler = new PrismaSchedulerStore(prisma);
 
 /** Saved Agent Profiles, for nodes that reference one instead of inline config. */
 async function loadProfiles(): Promise<ReadonlyMap<string, AgentProfileRecord>> {
@@ -156,10 +160,39 @@ const handlers = createHandlerRegistry({
 });
 
 let stopping = false;
+let nextSchedulerTick = 0;
+
+/**
+ * The scheduler shares the worker's loop rather than running its own timer.
+ *
+ * One process, one clock, and a tick that cannot overlap itself — which is what
+ * keeps "exactly once per slot" true even when a tick runs long.
+ */
+async function runSchedulerIfDue(): Promise<void> {
+  const now = Date.now();
+  if (now < nextSchedulerTick) return;
+  nextSchedulerTick = now + SCHEDULER_TICK_MS;
+
+  try {
+    const result = await schedulerTick(
+      { store: scheduler, log: (level, message) => console.log(`[scheduler:${level}] ${message}`) },
+      new Date(now),
+    );
+
+    for (const problem of result.problems) {
+      console.warn(`[scheduler] ${problem.id}: ${problem.message}`);
+    }
+  } catch (error) {
+    // A scheduler failure must not stop the queue from draining.
+    console.error("scheduler tick failed:", error);
+  }
+}
 
 async function loop(): Promise<void> {
   while (!stopping) {
     try {
+      await runSchedulerIfDue();
+
       // Drain the queue, then wait. One run at a time keeps ordering obvious
       // and the single-user machine responsive.
       const outcome = await runNextQueued({

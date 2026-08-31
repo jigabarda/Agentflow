@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Task, TaskPriority } from "@agentflow/core";
+import { RecurrenceEditor } from "./RecurrenceEditor";
 import { Timeline } from "./Timeline";
 import { useBoardStore } from "./boardStore";
 
@@ -136,6 +137,14 @@ export function TaskDrawer({ task }: { task: Task }) {
           </p>
         )}
       </section>
+
+      <RecurrenceEditor
+        recurrence={task.recurrence ?? null}
+        timezone={task.recurrenceTz ?? null}
+        onChange={(recurrence, recurrenceTz) =>
+          void updateTask(task.id, { recurrence, recurrenceTz })
+        }
+      />
 
       {task.prUrl && (
         <section className="mb-4">

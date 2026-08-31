@@ -64,6 +64,10 @@ export interface Task {
   dueAt?: Date | null;
   /** cron/RRULE — a template card respawns children on this schedule. */
   recurrence?: string | null;
+  /** The timezone that recurrence is read in. */
+  recurrenceTz?: string | null;
+  /** For a spawned child: the slot it was created for. */
+  scheduledFor?: Date | null;
   templateId?: string | null;
   parentTaskId?: string | null;
   archivedAt?: Date | null;

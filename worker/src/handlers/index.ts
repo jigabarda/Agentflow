@@ -4,6 +4,7 @@ import { createConditionHandler, type ConditionDeps } from "./condition";
 import { echo } from "./echo";
 import { createGitHubHandlers, type GitHubHandlerDeps } from "./github/index";
 import { manualTrigger } from "./manualTrigger";
+import { scheduleTrigger } from "./scheduleTrigger";
 import type { NodeHandler } from "./types";
 
 /**
@@ -25,7 +26,11 @@ export interface HandlerDeps {
 }
 
 export function createHandlerRegistry(deps: HandlerDeps = {}): Map<string, NodeHandler> {
-  const handlers: NodeHandler[] = [manualTrigger as NodeHandler, echo as NodeHandler];
+  const handlers: NodeHandler[] = [
+    manualTrigger as NodeHandler,
+    scheduleTrigger as NodeHandler,
+    echo as NodeHandler,
+  ];
 
   if (deps.agent) {
     handlers.push(createAgentHandler(deps.agent) as NodeHandler);

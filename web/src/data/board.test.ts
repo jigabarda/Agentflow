@@ -297,6 +297,13 @@ describe("moveTask", () => {
     expect(result.warning).toContain("WIP limit");
   });
 
+  /**
+   * The one deliberately slow test in the suite: 80 drops into the same slot,
+   * which is what it takes to exhaust double precision and force a respace.
+   * That is 160 sequential SQLite round trips — about 1.5s here and several
+   * times that on a shared CI runner, so it gets a timeout that reflects the
+   * work rather than a shorter loop that would stop proving the point.
+   */
   it("survives repeated drops into the same slot by renormalizing the column", async () => {
     const { board, byKind } = await seedBoard();
     const column = byKind.ready!.id;
@@ -324,7 +331,7 @@ describe("moveTask", () => {
     expect(orders).toEqual([...orders].sort((a, b) => a - b));
     expect(new Set(orders).size).toBe(orders.length);
     expect(inColumn.at(-1)!.title).toBe("bottom");
-  });
+  }, 60_000);
 
   it("refuses to move a card that does not exist", async () => {
     const { byKind } = await seedBoard();
