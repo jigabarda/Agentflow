@@ -129,6 +129,15 @@ const handlers = createHandlerRegistry({
       });
     },
   },
+  condition: {
+    log: async (runId, entry) => {
+      await store.appendLog(runId, {
+        level: entry.level,
+        message: entry.message,
+        nodeId: entry.nodeId,
+      });
+    },
+  },
   github: {
     client: github.client,
     git: github.git,

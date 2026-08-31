@@ -119,6 +119,14 @@ export interface PipelineEdge {
   target: string;
   /** Set by branching nodes (e.g. "true" / "false") so the runner follows one path. */
   sourceHandle?: string;
+  /**
+   * A deliberate way back to an earlier node — "reviewer asked for changes, go
+   * implement again". Marked explicitly so that every OTHER cycle stays a
+   * validation error: an accidental loop must never be runnable.
+   */
+  loop?: boolean;
+  /** How many times this loop may be taken before the run fails. */
+  maxIterations?: number;
 }
 
 export interface Pipeline {

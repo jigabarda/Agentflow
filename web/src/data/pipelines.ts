@@ -35,6 +35,8 @@ type EdgeRow = {
   source: string;
   target: string;
   sourceHandle: string | null;
+  loop: boolean;
+  maxIterations: number | null;
 };
 
 function toNode(row: NodeRow): PipelineNode {
@@ -54,6 +56,8 @@ function toEdge(row: EdgeRow): PipelineEdge {
     source: row.source,
     target: row.target,
     ...(row.sourceHandle ? { sourceHandle: row.sourceHandle } : {}),
+    ...(row.loop ? { loop: true } : {}),
+    ...(row.maxIterations !== null ? { maxIterations: row.maxIterations } : {}),
   };
 }
 
@@ -77,6 +81,8 @@ export async function createPipeline(input: PipelineGraphInput): Promise<Pipelin
           source: edge.source,
           target: edge.target,
           sourceHandle: edge.sourceHandle ?? null,
+          loop: edge.loop ?? false,
+          maxIterations: edge.maxIterations ?? null,
         })),
       },
     },
@@ -153,6 +159,8 @@ export async function savePipelineGraph(id: string, input: PipelineGraphInput): 
         source: edge.source,
         target: edge.target,
         sourceHandle: edge.sourceHandle ?? null,
+        loop: edge.loop ?? false,
+        maxIterations: edge.maxIterations ?? null,
       })),
     }),
   ]);

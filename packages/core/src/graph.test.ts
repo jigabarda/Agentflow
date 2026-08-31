@@ -295,3 +295,64 @@ describe("topologicalOrder", () => {
     expect(topologicalOrder({ nodes: [], edges: [] })).toEqual([]);
   });
 });
+
+describe("loop edges", () => {
+  const loopingTeam = {
+    id: "p1",
+    name: "Team",
+    nodes: [
+      { id: "trigger", type: "task-trigger", label: "Start", config: {}, x: 0, y: 0 },
+      { id: "implement", type: "echo", label: "Implement", config: {}, x: 1, y: 0 },
+      { id: "review", type: "echo", label: "Review", config: {}, x: 2, y: 0 },
+    ],
+    edges: [
+      { id: "e1", source: "trigger", target: "implement" },
+      { id: "e2", source: "implement", target: "review" },
+      { id: "e3", source: "review", target: "implement", loop: true },
+    ],
+  };
+
+  it("accepts a cycle that is explicitly marked as a loop", () => {
+    expect(validateGraph(loopingTeam).valid).toBe(true);
+  });
+
+  it("still rejects the same cycle when it is not marked", () => {
+    const unmarked = {
+      ...loopingTeam,
+      edges: loopingTeam.edges.map((edge) => (edge.id === "e3" ? { ...edge, loop: false } : edge)),
+    };
+
+    const result = validateGraph(unmarked);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((issue) => issue.code === "cycle")).toBe(true);
+  });
+
+  it("tells the user a loop is what they may have meant", () => {
+    const unmarked = {
+      ...loopingTeam,
+      edges: loopingTeam.edges.map((edge) => (edge.id === "e3" ? { ...edge, loop: false } : edge)),
+    };
+
+    expect(validateGraph(unmarked).issues[0]?.message).toMatch(/Mark the edge that goes back/);
+  });
+
+  it("rejects a loop edge that does not actually go backwards", () => {
+    const sideways = {
+      ...loopingTeam,
+      nodes: [
+        ...loopingTeam.nodes,
+        { id: "other", type: "echo", label: "O", config: {}, x: 3, y: 0 },
+      ],
+      edges: [
+        { id: "e1", source: "trigger", target: "implement" },
+        { id: "e2", source: "implement", target: "review" },
+        // "other" leads nowhere, so this is not a way back to anything.
+        { id: "e3", source: "review", target: "other", loop: true },
+      ],
+    };
+
+    const result = validateGraph(sideways);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((issue) => issue.code === "loop-not-backwards")).toBe(true);
+  });
+});

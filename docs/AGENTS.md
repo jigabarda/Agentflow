@@ -178,3 +178,27 @@ export interface AgentRunner {
 - **Outward/destructive actions are node-level, not agent-level:** the agent proposes code; *nodes* (`open-pr`, `merge-pr`, `deploy-*`) perform outward actions, each gated. This keeps the blast radius of a misbehaving agent to "edited files in a throwaway workspace."
 - **Cost guard:** per-node `maxTokens`; a run that exceeds its budget aborts and logs why.
 - **Every tool call is logged** (name + allowed/denied) for audit.
+
+---
+
+## The crew (Phase 8)
+
+Four roles, as presets in `web/src/nodes/presets.ts`. A preset seeds the prompt,
+the tools and a suggested effort — and **never a provider or a model**, because
+that choice is the user's on every node.
+
+| Role | Tools | Suggested effort | Why |
+|------|-------|------------------|-----|
+| **Triager** | none | `low` | Runs on every card; the one to keep cheap. |
+| **Planner** | read-only | `medium` | Reads the repo to plan realistically, writes nothing. |
+| **Implementer** | read + write | `xhigh` | The work itself. Not the place to economise. |
+| **Reviewer** | read-only | `high` | A reviewer that can edit is not a reviewer. |
+
+The reviewer is asked to begin its reply with one word — `APPROVED` or
+`CHANGES` — and a `condition` node routes on it. `CHANGES` is listed first
+because the first match wins, and an answer nobody can parse falls through to
+`CHANGES`: the safe default is more work, never a merge.
+
+Seed the whole crew with `POST /api/boards/{id}/crew`. The canvas has no control
+for marking an edge as a loop yet, so that seed is currently the only way to
+build one — a gap worth closing.

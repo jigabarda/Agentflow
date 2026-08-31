@@ -1,4 +1,10 @@
-import { interpolateConfig, topologicalOrder } from "@agentflow/core";
+import {
+  Flow,
+  FlowLoopExceeded,
+  branchOf,
+  interpolateConfig,
+  topologicalOrder,
+} from "@agentflow/core";
 import type { RunContext, RunStatus } from "@agentflow/core";
 import { NodeFailure, RunPaused, type NodeHandler } from "../handlers/index";
 import type { LoadedPipeline, QueuedRun, RunStore } from "../store";
@@ -15,6 +21,10 @@ import type { RunReconciler } from "./board";
  * approving puts it back in the queue; on the second pass the runner rebuilds
  * its context from the steps that already succeeded and carries on from the
  * gate, so no node — and no agent — runs twice.
+ *
+ * From Phase 8 the walk is driven by the pure `Flow` controller rather than a
+ * flat topological order, so a `condition` can prune the branch it did not
+ * choose and a reviewer can send the work back — bounded, and never silently.
  */
 
 export interface RunnerDeps {
@@ -61,9 +71,13 @@ export async function executeRun(deps: RunnerDeps, run: QueuedRun): Promise<RunO
     return fail(deps, run, now, `Pipeline ${run.pipelineId} no longer exists.`, {});
   }
 
-  let order;
+  let flow: Flow;
+  let total: number;
   try {
-    order = topologicalOrder(pipeline);
+    // Validates the shape up front: an unmarked cycle still fails here rather
+    // than at run time.
+    total = topologicalOrder({ ...pipeline, edges: pipeline.edges.filter((e) => !e.loop) }).length;
+    flow = new Flow(pipeline);
   } catch (error) {
     // The editor refuses to save a cyclic graph, so this means the data was
     // changed some other way. Fail the run cleanly rather than loop forever.
@@ -88,24 +102,43 @@ export async function executeRun(deps: RunnerDeps, run: QueuedRun): Promise<RunO
   await store.appendLog(run.id, {
     level: "info",
     message: resuming
-      ? `Resuming "${pipeline.name}" — ${alreadyDone.size} of ${order.length} step(s) already done.`
-      : `Running "${pipeline.name}" — ${order.length} step${order.length === 1 ? "" : "s"}.`,
+      ? `Resuming "${pipeline.name}" — ${alreadyDone.size} of ${total} step(s) already done.`
+      : `Running "${pipeline.name}" — ${total} step${total === 1 ? "" : "s"}.`,
   });
 
   if (!resuming) {
-    await reconciler?.onRunStarted(card, pipeline.name, order.length);
+    await reconciler?.onRunStarted(card, pipeline.name, total);
   }
 
-  for (const [position, node] of order.entries()) {
+  let position = 0;
+
+  for (;;) {
+    let node;
+    try {
+      node = flow.next();
+    } catch (error) {
+      // A loop that never settled. Fail with the cap named, never silently.
+      if (error instanceof FlowLoopExceeded) {
+        await store.appendLog(run.id, { level: "error", message: error.message });
+        return fail(deps, run, now, error.message, outputsOf(context));
+      }
+      throw error;
+    }
+    if (!node) break;
+
+    position += 1;
     const report = {
       nodeId: node.id,
       label: node.label,
-      index: position + 1,
-      total: order.length,
+      index: position,
+      total,
     };
 
     // Already succeeded on an earlier pass: keep its output, do not re-run it.
-    if (alreadyDone.has(node.id)) continue;
+    if (alreadyDone.has(node.id)) {
+      flow.complete(node.id, branchOf(alreadyDone.get(node.id)));
+      continue;
+    }
 
     // Reuse the step row a pause left behind, so a gate does not accumulate a
     // new row every time the run comes back.
@@ -120,6 +153,7 @@ export async function executeRun(deps: RunnerDeps, run: QueuedRun): Promise<RunO
       await store.setStepStatus(step.id, { status: "failed", error: message, endedAt: now() });
       await store.appendLog(run.id, { level: "error", message, nodeId: node.id });
       await reconciler?.onStepFailed(card, report, message);
+      flow.fail(node.id);
       return fail(deps, run, now, message, outputsOf(context), node.id);
     }
 
@@ -141,6 +175,17 @@ export async function executeRun(deps: RunnerDeps, run: QueuedRun): Promise<RunO
         nodeId: node.id,
       });
       await reconciler?.onStepSucceeded(card, report);
+
+      // The node may have chosen a branch; the flow prunes the rest.
+      try {
+        flow.complete(node.id, branchOf(output));
+      } catch (error) {
+        if (error instanceof FlowLoopExceeded) {
+          await store.appendLog(run.id, { level: "error", message: error.message });
+          return fail(deps, run, now, error.message, outputsOf(context), node.id);
+        }
+        throw error;
+      }
     } catch (error) {
       // A gate is not a failure. Put the step back to pending, park the run,
       // and leave everything computed so far on disk for the resume.
@@ -162,8 +207,25 @@ export async function executeRun(deps: RunnerDeps, run: QueuedRun): Promise<RunO
         nodeId: node.id,
       });
       await reconciler?.onStepFailed(card, report, message);
+      flow.fail(node.id);
       return fail(deps, run, now, `${node.id}: ${message}`, outputsOf(context), node.id);
     }
+  }
+
+  // A graph that stopped with work still pending has stalled — usually an edge
+  // that can never fire. Reporting that as success would hide a broken pipeline.
+  const stalled = flow.stalled();
+  if (stalled.length > 0) {
+    const message = `The pipeline stopped with ${stalled.join(", ")} still waiting on an input that never arrived.`;
+    await store.appendLog(run.id, { level: "error", message });
+    return fail(deps, run, now, message, outputsOf(context));
+  }
+
+  // A branch that was never taken is recorded as skipped, so the run detail
+  // shows why a node has no output instead of leaving a gap.
+  for (const skipped of flow.skipped()) {
+    const step = await store.findOpenStep(run.id, skipped);
+    if (step) await store.setStepStatus(step.id, { status: "skipped", endedAt: now() });
   }
 
   await store.setRunStatus(run.id, { status: "succeeded", endedAt: now(), error: null });

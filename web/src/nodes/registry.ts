@@ -104,11 +104,15 @@ export const NODE_TYPES: readonly NodeTypeDef[] = [
     phase: "later",
     description: "Routes the run down one branch based on a value.",
     configSchema: z.object({
-      expression: interpolatable("e.g. {{ nodes.reviewer.output.verdict }}"),
+      expression: interpolatable("e.g. {{ nodes.reviewer.output.result }}"),
+      cases: z
+        .array(z.string())
+        .default([])
+        .describe("Handles to try, in order. The first one found in the value wins"),
       default: z.string().default("false").describe("Handle to follow when nothing matches"),
     }),
     inputs: [],
-    outputs: ["matched"],
+    outputs: ["branch", "matched", "value"],
   },
   {
     id: "http-request",

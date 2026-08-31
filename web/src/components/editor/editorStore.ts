@@ -80,12 +80,17 @@ function toCoreGraph(nodes: FlowNode[], edges: Edge[]) {
       x: node.position.x,
       y: node.position.y,
     })),
-    edges: edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      ...(edge.sourceHandle ? { sourceHandle: edge.sourceHandle } : {}),
-    })),
+    edges: edges.map((edge) => {
+      const meta = (edge.data ?? {}) as { loop?: unknown; maxIterations?: unknown };
+      return {
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        ...(edge.sourceHandle ? { sourceHandle: edge.sourceHandle } : {}),
+        ...(meta.loop ? { loop: true } : {}),
+        ...(typeof meta.maxIterations === "number" ? { maxIterations: meta.maxIterations } : {}),
+      };
+    }),
   };
 }
 
@@ -114,6 +119,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       source: edge.source,
       target: edge.target,
       ...(edge.sourceHandle ? { sourceHandle: edge.sourceHandle } : {}),
+      // Carried through the canvas untouched. Dropping it here would silently
+      // turn a valid reviewer loop into an invalid cycle on the next save.
+      ...(edge.loop
+        ? {
+            data: {
+              loop: true,
+              ...(edge.maxIterations ? { maxIterations: edge.maxIterations } : {}),
+            },
+            label: `loop${edge.maxIterations ? ` ×${edge.maxIterations}` : ""}`,
+            animated: true,
+          }
+        : {}),
     }));
 
     set({

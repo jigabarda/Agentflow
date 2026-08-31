@@ -138,6 +138,10 @@ export class PrismaRunStore implements RunStore {
         source: edge.source,
         target: edge.target,
         ...(edge.sourceHandle ? { sourceHandle: edge.sourceHandle } : {}),
+        // Without these the flow controller cannot tell a deliberate loop from
+        // a cycle, and the run would refuse to start.
+        ...(edge.loop ? { loop: true } : {}),
+        ...(edge.maxIterations !== null ? { maxIterations: edge.maxIterations } : {}),
       })),
       vars: Object.fromEntries(row.variables.map((variable) => [variable.key, variable.value])),
     };

@@ -179,6 +179,10 @@ export const pipelineEdgeSchema = z.object({
   source: z.string().min(1),
   target: z.string().min(1),
   sourceHandle: z.string().min(1).optional(),
+  /** A deliberate way back to an earlier node — the reviewer loop. */
+  loop: z.boolean().optional(),
+  /** How many times that loop may be taken before the run fails. */
+  maxIterations: z.number().int().positive().optional(),
 });
 
 export const pipelineSchema = z.object({
