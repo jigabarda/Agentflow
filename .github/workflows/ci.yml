@@ -136,3 +136,63 @@ jobs:
           name: playwright-report
           path: web/playwright-report/
           retention-days: 7
+
+  docker:
+    name: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # The compose file requires this, and the app refuses to store secrets
+      # without one. Throwaway, exactly as in the other jobs.
+      - name: Write a .env for the stack
+        run: echo "SECRETS_ENC_KEY=${SECRETS_ENC_KEY}" > .env
+
+      - name: Build both images
+        run: docker compose build
+
+      - name: Start the stack
+        run: docker compose up -d
+
+      - name: Migrations applied
+        run: |
+          docker compose logs migrate
+          docker compose ps -a migrate
+
+      # The compose healthcheck is the real assertion: it passes only when the
+      # board renders, which needs the app AND a migrated database.
+      - name: Wait for the web service to be healthy
+        run: |
+          for attempt in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q web)" 2>/dev/null || echo starting)
+            echo "web: $status"
+            [ "$status" = "healthy" ] && exit 0
+            [ "$status" = "unhealthy" ] && break
+            sleep 5
+          done
+          echo "::error::web never became healthy"
+          docker compose logs web
+          exit 1
+
+      - name: The board is served
+        run: |
+          curl --fail --silent --show-error http://127.0.0.1:3000/ > /dev/null
+          echo "board responded"
+
+      # The worker has no port, so its readiness is what it says for itself.
+      - name: The worker connected to the database
+        run: |
+          for attempt in $(seq 1 24); do
+            if docker compose logs worker 2>&1 | grep -q "worker ready"; then
+              echo "worker ready"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::the worker never reported ready"
+          docker compose logs worker
+          exit 1
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v

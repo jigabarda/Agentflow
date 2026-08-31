@@ -36,6 +36,20 @@ export function createWorkspace(runId: string, root?: string): Workspace {
   };
 }
 
+/**
+ * Where run workspaces live.
+ *
+ * `AGENTFLOW_WORKSPACE_ROOT` matters in a container: the default temp directory
+ * is inside the image's writable layer, so a run parked at an approval gate
+ * would lose its clone — and the agent's edits with it — the moment the
+ * container restarted. Pointing this at a volume is what makes a gate survive
+ * a restart (docker-compose.yml).
+ */
+export function workspaceRoot(): string {
+  const configured = process.env.AGENTFLOW_WORKSPACE_ROOT?.trim();
+  return configured || path.join(os.tmpdir(), "agentflow");
+}
+
 /** Keep run ids from escaping into the path. */
 function sanitize(runId: string): string {
   return runId.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
@@ -104,7 +118,7 @@ export function pathsInToolInput(input: unknown): string[] {
  * twice is harmless.
  */
 export function openRunWorkspace(runId: string, root?: string): Workspace {
-  const base = root ?? path.join(os.tmpdir(), "agentflow");
+  const base = root ?? workspaceRoot();
   mkdirSync(base, { recursive: true });
 
   const dir = path.join(realpathSync(base), `${PREFIX}${sanitize(runId)}`);

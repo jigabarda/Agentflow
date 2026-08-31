@@ -1,8 +1,21 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createWorkspace, isInsideWorkspace, pathsInToolInput } from "./index";
+import {
+  createWorkspace,
+  isInsideWorkspace,
+  openRunWorkspace,
+  pathsInToolInput,
+  workspaceRoot,
+} from "./index";
 
 const created: { cleanup: () => void }[] = [];
 
@@ -117,5 +130,50 @@ describe("finding paths in a tool call", () => {
     expect(pathsInToolInput({ command: "ls" })).toEqual([]);
     expect(pathsInToolInput(null)).toEqual([]);
     expect(pathsInToolInput("string")).toEqual([]);
+  });
+});
+
+describe("workspaceRoot", () => {
+  const original = process.env.AGENTFLOW_WORKSPACE_ROOT;
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.AGENTFLOW_WORKSPACE_ROOT;
+    else process.env.AGENTFLOW_WORKSPACE_ROOT = original;
+  });
+
+  it("falls back to a temp directory when nothing is configured", () => {
+    delete process.env.AGENTFLOW_WORKSPACE_ROOT;
+    expect(workspaceRoot()).toContain("agentflow");
+  });
+
+  it("honours the configured root, which is how a volume gets used", () => {
+    // In a container the default is inside the writable layer, so a run parked
+    // at a gate would lose its clone on restart.
+    process.env.AGENTFLOW_WORKSPACE_ROOT = "/workspaces";
+    expect(workspaceRoot()).toBe("/workspaces");
+  });
+
+  it("ignores a blank setting rather than using the filesystem root", () => {
+    process.env.AGENTFLOW_WORKSPACE_ROOT = "   ";
+    expect(workspaceRoot()).not.toBe("");
+    expect(workspaceRoot()).toContain("agentflow");
+  });
+
+  it("puts a run's directory under the configured root", () => {
+    process.env.AGENTFLOW_WORKSPACE_ROOT = mkdtempSync(path.join(os.tmpdir(), "af-root-"));
+    const workspace = openRunWorkspace("run_abc");
+
+    expect(workspace.dir.startsWith(realpathSync(process.env.AGENTFLOW_WORKSPACE_ROOT))).toBe(true);
+    workspace.cleanup();
+  });
+
+  it("gives the same run the same directory twice, so a resume finds its clone", () => {
+    process.env.AGENTFLOW_WORKSPACE_ROOT = mkdtempSync(path.join(os.tmpdir(), "af-root-"));
+
+    const first = openRunWorkspace("run_same");
+    const second = openRunWorkspace("run_same");
+
+    expect(second.dir).toBe(first.dir);
+    first.cleanup();
   });
 });
