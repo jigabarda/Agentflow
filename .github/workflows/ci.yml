@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # A branch is verified through its pull request; running on every branch push
+  # too would just double every run for the same commit.
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
 
 # Mirrors the local commands in PLAN.md. Live agent/GitHub smoke tests are NOT
@@ -12,7 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: "file:./ci.db"
-      SECRETS_ENC_KEY: "Q0lfb25seV9wbGFjZWhvbGRlcl9uZXZlcl9hX3JlYWxfa2V5MDA="
+      # A throwaway 32-byte key (AES-256 accepts no other length), used only to
+      # encrypt data this CI run creates and then discards. It guards nothing
+      # real, which is why it can live in the open — never reuse it anywhere.
+      SECRETS_ENC_KEY: "Ay9YSOUBzOL+pnINDtGp38XnUhqYQ4l6uZ+bqTwonro="
 
     steps:
       - uses: actions/checkout@v4
