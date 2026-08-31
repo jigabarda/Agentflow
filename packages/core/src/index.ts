@@ -16,3 +16,4 @@ export * from "./flow";
 export * from "./github/mappers";
 export * from "./recurrence";
 export * from "./today";
+export * from "./integrations/deploy";

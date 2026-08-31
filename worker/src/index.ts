@@ -14,6 +14,7 @@ import { PrismaBoardStore } from "./board/BoardStore";
 import { createBoardReconciler } from "./engine/board";
 import { runNextQueued } from "./engine/runner";
 import { createLazyGitHub } from "./github/lazy";
+import { FetchHttpClient } from "./http/HttpClient";
 import { createHandlerRegistry } from "./handlers/index";
 import { PrismaSchedulerStore } from "./scheduler/PrismaSchedulerStore";
 import { DEFAULT_TICK_MS, tick as schedulerTick } from "./scheduler/index";
@@ -81,11 +82,23 @@ async function loadCredential(
  * The encrypted store wins when both are set.
  */
 async function loadGitHubToken(): Promise<string | null> {
-  const row = await prisma.secret.findUnique({ where: { name: "GITHUB_TOKEN" } });
+  return loadSecret("GITHUB_TOKEN");
+}
+
+const httpClient = new FetchHttpClient();
+
+/**
+ * A stored integration secret, decrypted at the moment of use.
+ *
+ * Same rule as the GitHub token: the encrypted store wins, and `.env` is a
+ * documented fallback for a self-hosted box (docs/INTEGRATIONS.md).
+ */
+async function loadSecret(name: string): Promise<string | null> {
+  const row = await prisma.secret.findUnique({ where: { name } });
   const key = process.env.SECRETS_ENC_KEY;
 
   if (row && key) return decryptSecret(row.ciphertext, key);
-  return process.env.GITHUB_TOKEN ?? null;
+  return process.env[name] ?? null;
 }
 
 const github = createLazyGitHub({
@@ -125,6 +138,28 @@ const handlers = createHandlerRegistry({
         update: {},
       });
     },
+    log: async (runId, entry) => {
+      await store.appendLog(runId, {
+        level: entry.level,
+        message: entry.message,
+        nodeId: entry.nodeId,
+      });
+    },
+  },
+  http: {
+    http: httpClient,
+    loadSecret,
+    log: async (runId, entry) => {
+      await store.appendLog(runId, {
+        level: entry.level,
+        message: entry.message,
+        nodeId: entry.nodeId,
+      });
+    },
+  },
+  deploy: {
+    http: httpClient,
+    loadSecret,
     log: async (runId, entry) => {
       await store.appendLog(runId, {
         level: entry.level,

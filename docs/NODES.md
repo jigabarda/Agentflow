@@ -154,17 +154,25 @@ Poll GitHub Actions / check-runs for the PR's head SHA until complete. **Config:
 - Named required checks that never appear will hold until `timeoutSec`, then conclude `timed_out`.
 
 ### `merge-pr` — 🔵 (gated)
-Merge a PR **only if** required checks are green. **Config:** `{ repo, prNumber, method: "merge"|"squash"|"rebase" }`. **Output:** `{ merged, mergeSha }`. Destructive/outward → requires a passing gate ([SECURITY.md](SECURITY.md)).
+Merge a PR **only if** required checks are green. **Config:** `{ repo, prNumber, method: "merge"|"squash"|"rebase", requiredChecks?: string[], allowNoChecks?: boolean }`. **Output:** `{ merged, mergeSha }`. Destructive/outward → requires a passing gate ([SECURITY.md](SECURITY.md)).
+
+- The gate is **not advisory**. It reads the check runs on the PR's *head commit* (`refs/pull/N/head`, not the branch name) and merges only when they have actually passed. A failure, or anything still running, stops the run and names it.
+- **A repo with no checks is refused**, not merged. No CI means nothing was verified — treating that as permission would make the gate strictest on repos that test and absent on repos that do not. `allowNoChecks` merges anyway, explicitly, and logs a warning saying nothing was verified.
+- `requiredChecks` narrows the gate to the checks you name; a required check that has not appeared yet keeps it waiting.
 
 ---
 
 ## Deploy nodes — 🔵 ([INTEGRATIONS.md](INTEGRATIONS.md))
 
 ### `deploy-vercel`
-Trigger a Vercel deployment. **Config:** `{ projectId?, deployHookUrl? | token secretRef, target: "preview"|"production" }`. **Output:** `{ deploymentUrl, state }`.
+Trigger a Vercel deployment. **Config:** `{ project?, target: "preview"|"production", deployHookUrl?, teamId?, tokenRef = "VERCEL_TOKEN" }`. **Output:** `{ deploymentUrl, state, ready }`.
+- A **deploy hook** needs no token and wins when set. Otherwise the API is called with the token from `tokenRef`.
+- A deployment that is still building is **not** a failure: the node returns the state it has and `ready: false`. Only a state the provider calls failed fails the run.
 
 ### `deploy-netlify`
-Trigger a Netlify deploy. **Config:** `{ siteId, token secretRef, prod: boolean }`. **Output:** `{ deployUrl, state }`.
+Trigger a Netlify deploy. **Config:** `{ siteId?, prod: boolean, buildHookUrl?, tokenRef = "NETLIFY_TOKEN" }`. **Output:** `{ deploymentUrl, state, ready }`. A **build hook** needs no token and wins when set.
+
+> The request shapes and response fields for both providers are written from their documented APIs and pinned to fixtures in `packages/core/src/integrations/deploy.ts`. They have **not** been verified against a live account — treat the first real deployment as the thing that confirms them. A provider changing its response is a one-file fix.
 
 > Any other host/backend is reachable via the generic **`http-request`** node.
 
