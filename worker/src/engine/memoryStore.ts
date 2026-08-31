@@ -84,6 +84,18 @@ export class MemoryRunStore implements RunStore {
       .map((step) => ({ nodeId: step.nodeId, output: step.output }));
   }
 
+  /** Tokens recorded by the last status patch that carried a figure. */
+  async tokensSpent(_runId: string): Promise<number> {
+    return (
+      [...this.runStatuses].reverse().find((patch) => patch.tokensUsed !== undefined)?.tokensUsed ??
+      0
+    );
+  }
+
+  async requeueInterruptedRuns(): Promise<string[]> {
+    return [];
+  }
+
   async findOpenStep(runId: string, nodeId: string): Promise<{ id: string } | null> {
     const step = this.steps.find(
       (item) =>

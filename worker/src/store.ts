@@ -29,6 +29,8 @@ export interface LoadedPipeline {
   nodes: PipelineNode[];
   edges: PipelineEdge[];
   vars: Record<string, string>;
+  /** Stop the run past this many tokens. Null = no cap. */
+  maxTokensPerRun: number | null;
 }
 
 export interface RunStatusPatch {
@@ -36,6 +38,7 @@ export interface RunStatusPatch {
   error?: string | null;
   startedAt?: Date;
   endedAt?: Date;
+  tokensUsed?: number;
 }
 
 export interface StepPatch {
@@ -75,6 +78,15 @@ export interface RunStore {
   loadCompletedSteps(runId: string): Promise<CompletedStep[]>;
   /** A step for this node that has not finished — reused instead of duplicated. */
   findOpenStep(runId: string, nodeId: string): Promise<{ id: string } | null>;
+  /** Tokens this run had already spent before the current pass. */
+  tokensSpent(runId: string): Promise<number>;
+  /**
+   * Put runs that were mid-flight back in the queue.
+   *
+   * Called once at startup: a `running` row with no worker behind it is a run
+   * that died with the process, and it will resume from its completed steps.
+   */
+  requeueInterruptedRuns(): Promise<string[]>;
 }
 
 // ────────────────────────────── Prisma-backed ───────────────────────────────
@@ -144,6 +156,7 @@ export class PrismaRunStore implements RunStore {
         ...(edge.maxIterations !== null ? { maxIterations: edge.maxIterations } : {}),
       })),
       vars: Object.fromEntries(row.variables.map((variable) => [variable.key, variable.value])),
+      maxTokensPerRun: row.maxTokensPerRun,
     };
   }
 
@@ -155,6 +168,7 @@ export class PrismaRunStore implements RunStore {
         ...(patch.error !== undefined ? { error: patch.error } : {}),
         ...(patch.startedAt ? { startedAt: patch.startedAt } : {}),
         ...(patch.endedAt ? { endedAt: patch.endedAt } : {}),
+        ...(patch.tokensUsed !== undefined ? { tokensUsed: patch.tokensUsed } : {}),
       },
     });
   }
@@ -193,6 +207,29 @@ export class PrismaRunStore implements RunStore {
       where: { runId, nodeId, status: { in: ["pending", "running"] } },
       select: { id: true },
     });
+  }
+
+  async tokensSpent(runId: string): Promise<number> {
+    const run = await this.prisma.run.findUnique({
+      where: { id: runId },
+      select: { tokensUsed: true },
+    });
+    return run?.tokensUsed ?? 0;
+  }
+
+  async requeueInterruptedRuns(): Promise<string[]> {
+    const stranded = await this.prisma.run.findMany({
+      where: { status: "running" },
+      select: { id: true },
+    });
+    if (stranded.length === 0) return [];
+
+    await this.prisma.run.updateMany({
+      where: { id: { in: stranded.map((run) => run.id) } },
+      data: { status: "queued", startedAt: null },
+    });
+
+    return stranded.map((run) => run.id);
   }
 
   async appendLog(runId: string, entry: LogInput): Promise<void> {

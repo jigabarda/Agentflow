@@ -35,6 +35,7 @@ const PIPELINE: LoadedPipeline = {
   id: "pipe_1",
   name: "Gated pipeline",
   vars: {},
+  maxTokensPerRun: null,
   nodes: [
     { id: "trigger", type: "manual-trigger", label: "Start", config: {}, x: 0, y: 0 },
     { id: "before", type: "counted", label: "Expensive work", config: {}, x: 1, y: 0 },

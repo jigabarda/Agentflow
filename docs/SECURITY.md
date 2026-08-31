@@ -92,3 +92,34 @@ The `ClaudeAgentRunner` configures the SDK's **permission / hook** system to enf
 5. Cost + loop caps are enforced and logged when hit.
 
 If a change would violate any of these, it is wrong — stop and fix before proceeding.
+
+---
+
+## What Phase 11 hardened
+
+**The cost guard.** A runaway agent loop is the one failure mode that costs real
+money while looking like progress — every step "succeeds", and the bill is the
+only thing that notices. A pipeline may carry `maxTokensPerRun`; the runner adds
+up what each node reports, records it as it goes (so a run that dies still shows
+what it cost), and stops the moment the total passes the cap. The reason names
+the figure, the limit, and where to raise it. No cap means no limit: the absence
+of a number is not a reason to refuse to work.
+
+**Redaction is proven at the write point.** Every log line reaches the database
+through one method, and that method redacts. The test that matters drives a
+handler which deliberately writes a secret into a log, runs it through the real
+engine and the real store, and then reads the rows back to confirm the secret is
+not in them.
+
+**Recovery, and its honest caveat.** A `running` row with no worker behind it
+died with its process; on startup those runs are requeued and resume from their
+last completed step. A retry does the same from the step that failed. Both reuse
+everything that succeeded — but the *interrupted* step itself is at-least-once:
+a run killed during an agent call has no record that the call finished, so the
+resumed run makes it again. The cost is one step, not the whole run, and it is
+why anything outward or destructive belongs behind an approval gate.
+
+**Secrets are write-only.** `GET /api/secrets` returns names. A stored token is
+never sent back to the browser, not even masked; the UI shows that one is set
+and offers to replace or remove it. Rotation re-encrypts rather than reusing
+ciphertext. AI provider keys are not here at all — those are per-pipeline.

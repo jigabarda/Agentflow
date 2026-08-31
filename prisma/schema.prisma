@@ -136,6 +136,11 @@ model TaskEvent {
 model Pipeline {
   id          String               @id @default(cuid())
   name        String
+  /// Stop a run that has spent more than this many tokens. Null = no cap.
+  ///
+  /// A runaway agent loop is the one failure mode that costs real money while
+  /// looking like progress, so the limit lives next to the pipeline that spends.
+  maxTokensPerRun Int?
   nodes       PipelineNode[]
   edges       PipelineEdge[]
   variables   Variable[]
