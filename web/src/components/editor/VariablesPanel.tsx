@@ -1,10 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const inputClass =
-  "w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 " +
-  "focus:border-sky-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100";
+import { controlClass } from "./controls";
 
 /** Pipeline-level `{{ vars }}`, reusable across every node's config. */
 export function VariablesPanel({
@@ -36,20 +33,20 @@ export function VariablesPanel({
 
   return (
     <div data-testid="variables-panel" className="p-3">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Variables
       </h3>
 
       <ul className="mb-4 space-y-1">
-        {entries.length === 0 && <li className="text-xs text-neutral-500">None yet.</li>}
+        {entries.length === 0 && <li className="text-xs text-muted-foreground">None yet.</li>}
         {entries.map(([name, stored]) => (
           <li
             key={name}
             data-testid={`variable-${name}`}
-            className="rounded border border-neutral-200 bg-white px-2 py-1 font-mono text-xs dark:border-neutral-800 dark:bg-neutral-900"
+            className="rounded border border-border bg-card px-2 py-1 font-mono text-xs "
           >
             {`{{ pipeline.vars.${name} }}`}
-            <span className="ml-1 font-sans text-neutral-500">{stored}</span>
+            <span className="ml-1 font-sans text-muted-foreground">{stored}</span>
           </li>
         ))}
       </ul>
@@ -59,21 +56,21 @@ export function VariablesPanel({
         value={key}
         onChange={(event) => setKey(event.target.value)}
         placeholder="repoUrl"
-        className={`${inputClass} mb-2`}
+        className={`${controlClass} mb-2`}
       />
       <input
         data-testid="variable-value"
         value={value}
         onChange={(event) => setValue(event.target.value)}
         placeholder="acme/app"
-        className={`${inputClass} mb-2`}
+        className={`${controlClass} mb-2`}
       />
       <button
         type="button"
         data-testid="save-variable"
         disabled={key.trim() === ""}
         onClick={save}
-        className="w-full rounded bg-sky-600 px-2 py-1 text-sm text-white disabled:opacity-40"
+        className="w-full rounded bg-primary px-2 py-1 text-sm text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
       >
         Save variable
       </button>

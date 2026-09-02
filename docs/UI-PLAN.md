@@ -1,8 +1,9 @@
 # UI-PLAN.md — the shadcn/ui migration, and what is left after it
 
-> **Status: paused mid-migration on branch `ui/shadcn`.**
-> The foundation is in and two components are converted. Everything still
-> builds and every test passes. Pick it up at *Where to resume*.
+> **Status: the migration is complete on branch `ui/shadcn`.**
+> All nine surfaces are converted, the app shell exists, and everything builds
+> with 226 web tests and 36 E2E specs passing. What remains is in
+> *What is left in the product, beyond the UI*.
 
 ---
 
@@ -55,7 +56,7 @@ reintroduce `.dark` alongside the media query and add a provider that sets the
 class. Do not simply paste shadcn's default back, or the 205 existing utilities
 break.
 
-### Components converted (2 of ~12)
+### Components converted (all nine)
 
 - **`TaskCard.tsx`** — Card surface, `Badge` for labels/blocked/PR, Lucide
   icons, PR chip is now a real link (with `stopPropagation` so it does not start
@@ -64,57 +65,57 @@ break.
 - **`RunBadge.tsx`** — `Badge` per status with a matching Lucide icon, the
   running one spins; `ApprovalControls` now uses `Button`.
 
-Both gained `data-priority` / `data-selected` / `data-testid` hooks so tests can
-assert on **behaviour rather than Tailwind classes** — the old tests queried
+- **`Column.tsx`** — `Input` quick-add, `Badge` count and WIP warning, a real
+  `Tooltip` on the automation chip. The drop target is a ring rather than a
+  fill, so cards keep their own surface while you drag.
+- **`TaskDrawer.tsx`** — `Input` / `Textarea` / `Label` / `Button` / `Badge` /
+  `Separator`.
+- **`AppNav.tsx`** *(new)* — the shared shell.
+- **`Board.tsx`** — header, filter bar, and the rejection/WIP banners.
+- **`Timeline.tsx`** — a rail with an outcome-coloured dot per event.
+- **`/runs`, `/runs/[id]`, `/today`, `/settings/secrets`** — tokens throughout.
+- **Editor panels** — one shared `controls.ts` replacing five drifting copies of
+  the same `inputClass`.
+
+The card gained `data-priority` / `data-selected` / `data-testid` hooks so tests
+assert on **behaviour rather than Tailwind classes** — the old ones queried
 `.bg-red-500` and `.ring-2`, which is exactly what makes a restyle break a suite
-for no good reason. Convert the remaining class-based assertions as you go.
+for no good reason.
+
+### Where the plan was not followed, and why
+
+- **The drawer is not a `Sheet`.** A Sheet is a modal dialog; an overlay that
+  dims the board would undo the reason this is a drawer rather than a page. It
+  stays a plain `aside` with shadcn components inside it.
+- **Priority stays a native `<select>`.** It is what mobile and keyboard users
+  get for free, and what `selectOption` drives in the E2E suite. The styling gap
+  did not justify the churn. `controls.ts` makes it match.
+
+### Two bugs found while converting
+
+- shadcn's `init` wrote `--font-sans: var(--font-sans)` — self-referential, so
+  `@apply font-sans` on `body` silently lost the typeface. It now points at
+  `--font-geist-sans`, which is what `layout.tsx` actually defines.
+- The drawer still carried a second "Automation" section reading *"Coming in
+  Phase 7"* — dead text three phases out of date, directly below the real
+  automation panel.
 
 ---
 
-## Where to resume
+## The migration itself is done
 
-```bash
-git checkout ui/shadcn
-npm install
-npm run dev:web
-```
+All nine surfaces from the original list are converted, plus the app shell that
+was listed last and turned out to matter most: until it existed, the board,
+Today, Runs, Pipelines and Secrets were reachable only by typing a URL.
 
-Convert in this order — highest visibility first, and each step is a commit
-that leaves the app working:
+If you pick this up again, the rules that kept it safe were:
 
-1. **`Column.tsx`** — quick-add uses `Input`; header count and the ⚡ automation
-   chip use `Badge`; drop-zone highlight uses tokens (`bg-accent`) rather than
-   `bg-sky-100`. *(Started: the file is still original. This is the next task.)*
-2. **`TaskDrawer.tsx`** — the big one. `Sheet` for the drawer itself, `Input` /
-   `Textarea` / `Label` for the brief, `Select` for priority, `Separator`
-   between sections, `Button` throughout. Keep every `data-testid`: the board
-   E2E specs depend on `drawer-title`, `drawer-body`, `drawer-run-now`,
-   `drawer-approve`, `drawer-reject`, `close-drawer`, `timeline`.
-3. **`Board.tsx`** — page chrome, the filter bar, and the rejection/warning
-   banners (a `Card` or an alert-styled surface rather than raw divs).
-4. **`Timeline.tsx`** — the card's activity feed.
-5. **`/runs` + `/runs/[id]`** — `Card` rows, `Badge` for status, `Button` for
-   retry, `Separator` between sections.
-6. **`/today`** — same treatment as the run rows.
-7. **`/settings/secrets`** — `Card`, `Input`, `Button`; keep the write-only
-   behaviour exactly as it is.
-8. **Editor (`/pipelines`)** — `NodeConfigPanel`, `NodePalette`,
-   `ConnectionsPanel`, `AgentsPanel`, `VariablesPanel`. Leave the React Flow
-   canvas itself alone; only the surrounding panels need it.
-9. **A shared app shell** — there is currently no nav. Board / Today / Runs /
-   Secrets are all reachable only by typing URLs or via ad-hoc links. A single
-   header with those four links is probably the highest-value UI addition in
-   this whole list.
-
-### Rules while converting
-
-- **Keep every `data-testid`.** 34 E2E specs depend on them.
-- **Replace class-based assertions with data attributes** when a test breaks
-  because of styling. A test that asserts `.bg-red-500` is testing the wrong
-  thing.
+- **Keep every `data-testid`.** 36 E2E specs depend on them.
+- **Replace class-based assertions with data attributes** when a restyle breaks
+  one. A test asserting `.bg-red-500` is testing the wrong thing.
 - Run `npm run test:web && npm run e2e` after each component — the E2E suite is
-  the real guard here, and it is fast (~30s).
-- `npm run build` catches Tailwind/token mistakes that tests do not.
+  the real guard, and it is fast (~30s).
+- `npm run build` catches Tailwind and token mistakes that tests do not.
 
 ---
 

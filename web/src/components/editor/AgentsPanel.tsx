@@ -3,10 +3,7 @@
 import { useState } from "react";
 import type { AgentProfile } from "@/data/agentProfiles";
 import { EFFORT_LEVELS, PROVIDERS, modelsFor } from "@/nodes/models";
-
-const inputClass =
-  "w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 " +
-  "focus:border-sky-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100";
+import { controlClass } from "./controls";
 
 /**
  * The Agents library — define an agent once ("Senior implementer", "Cheap
@@ -59,29 +56,29 @@ export function AgentsPanel({
 
   return (
     <div data-testid="agents-panel" className="p-3">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Saved agents
       </h3>
 
       <ul className="mb-4 space-y-1">
         {profiles.length === 0 && (
-          <li className="text-xs text-neutral-500">None yet. Create one below.</li>
+          <li className="text-xs text-muted-foreground">None yet. Create one below.</li>
         )}
         {profiles.map((profile) => (
           <li
             key={profile.id}
             data-testid={`profile-${profile.id}`}
-            className="rounded border border-neutral-200 bg-white px-2 py-1 text-xs dark:border-neutral-800 dark:bg-neutral-900"
+            className="rounded border border-border bg-background px-2 py-1 text-xs"
           >
             <span className="font-medium">{profile.name}</span>
-            <span className="ml-1 text-neutral-500">
+            <span className="ml-1 text-muted-foreground">
               {profile.provider} · {profile.model} · {profile.effort}
             </span>
           </li>
         ))}
       </ul>
 
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         New agent
       </h3>
 
@@ -90,7 +87,7 @@ export function AgentsPanel({
         value={name}
         onChange={(event) => setName(event.target.value)}
         placeholder="Senior implementer"
-        className={`${inputClass} mb-2`}
+        className={`${controlClass} mb-2`}
       />
 
       <select
@@ -100,7 +97,7 @@ export function AgentsPanel({
           setProvider(event.target.value);
           setModel("");
         }}
-        className={`${inputClass} mb-2`}
+        className={`${controlClass} mb-2`}
       >
         <option value="">Pick a provider…</option>
         {PROVIDERS.map((item) => (
@@ -115,7 +112,7 @@ export function AgentsPanel({
           data-testid="profile-model"
           value={model}
           onChange={(event) => setModel(event.target.value)}
-          className={`${inputClass} mb-2`}
+          className={`${controlClass} mb-2`}
         >
           <option value="">Set a model…</option>
           {knownModels.map((item) => (
@@ -131,7 +128,7 @@ export function AgentsPanel({
           onChange={(event) => setModel(event.target.value)}
           placeholder={provider ? "Type the model id" : "Pick a provider first"}
           disabled={!provider}
-          className={`${inputClass} mb-2`}
+          className={`${controlClass} mb-2`}
         />
       )}
 
@@ -139,7 +136,7 @@ export function AgentsPanel({
         data-testid="profile-effort"
         value={effort}
         onChange={(event) => setEffort(event.target.value)}
-        className={`${inputClass} mb-2`}
+        className={`${controlClass} mb-2`}
       >
         {EFFORT_LEVELS.map((level) => (
           <option key={level.id} value={level.id}>
@@ -154,17 +151,17 @@ export function AgentsPanel({
         onChange={(event) => setSystemPrompt(event.target.value)}
         rows={3}
         placeholder="You are a senior engineer. Implement the task in this repo."
-        className={`${inputClass} mb-2 font-mono text-xs`}
+        className={`${controlClass} mb-2 font-mono text-xs`}
       />
 
-      {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
 
       <button
         type="button"
         data-testid="create-profile"
         disabled={!canSubmit || busy}
         onClick={create}
-        className="w-full rounded bg-sky-600 px-2 py-1 text-sm text-white disabled:opacity-40"
+        className="w-full rounded bg-primary px-2 py-1 text-sm text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
       >
         {busy ? "Saving…" : "Save agent"}
       </button>

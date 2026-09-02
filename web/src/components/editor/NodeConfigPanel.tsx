@@ -6,10 +6,7 @@ import { AGENT_TOOLS, EFFORT_LEVELS, PROVIDERS, modelsFor } from "@/nodes/models
 import { getNodeType } from "@/nodes/registry";
 import { issuesForNode, useEditorStore } from "./editorStore";
 import { ConfigField } from "./ConfigField";
-
-const inputClass =
-  "w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 " +
-  "focus:border-sky-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100";
+import { controlClass } from "./controls";
 
 /** Fields the agent panel renders by hand; the rest are generated. */
 const AGENT_CUSTOM_FIELDS = new Set([
@@ -32,7 +29,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
 
   if (!node) {
     return (
-      <aside className="w-80 shrink-0 border-l border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950">
+      <aside className="w-80 shrink-0 border-l border-border bg-muted/40 p-4 text-sm text-muted-foreground">
         Select a step to configure it.
       </aside>
     );
@@ -73,12 +70,10 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
   return (
     <aside
       data-testid="config-panel"
-      className="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950"
+      className="w-80 shrink-0 overflow-y-auto border-l border-border bg-muted/40 p-4"
     >
-      <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-        {type?.label ?? node.data.typeId}
-      </h2>
-      {type && <p className="mb-4 mt-1 text-[11px] text-neutral-500">{type.description}</p>}
+      <h2 className="text-sm font-semibold text-foreground">{type?.label ?? node.data.typeId}</h2>
+      {type && <p className="mb-4 mt-1 text-[11px] text-muted-foreground">{type.description}</p>}
 
       {issues.length > 0 && (
         <div
@@ -94,7 +89,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
       <div className="mb-3">
         <label
           htmlFor="node-label"
-          className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400"
+          className="mb-1 block text-xs font-medium text-muted-foreground"
         >
           Name on the canvas
         </label>
@@ -103,7 +98,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
           data-testid="node-label"
           value={node.data.label}
           onChange={(event) => updateNodeLabel(node.id, event.target.value)}
-          className={inputClass}
+          className={controlClass}
         />
       </div>
 
@@ -116,7 +111,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
           <div className="mb-3">
             <label
               htmlFor="agent-profile"
-              className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
             >
               Use a saved agent
             </label>
@@ -125,7 +120,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
               data-testid="agent-profile"
               value={(config.agentProfileId as string) ?? ""}
               onChange={(event) => setConfig("agentProfileId", event.target.value || undefined)}
-              className={inputClass}
+              className={controlClass}
             >
               <option value="">Configure here instead</option>
               {profiles.map((profile) => (
@@ -139,9 +134,9 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
           <div className="mb-3">
             <label
               htmlFor="agent-provider"
-              className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
             >
-              Provider<span className="ml-0.5 text-red-500">*</span>
+              Provider<span className="ml-0.5 text-destructive">*</span>
             </label>
             <select
               id="agent-provider"
@@ -152,7 +147,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
                 // same write, never carry it over.
                 patchConfig({ provider: event.target.value || undefined, model: undefined })
               }
-              className={inputClass}
+              className={controlClass}
             >
               <option value="">Pick a provider…</option>
               {PROVIDERS.map((provider) => (
@@ -166,9 +161,9 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
           <div className="mb-3">
             <label
               htmlFor="agent-model"
-              className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
             >
-              Model<span className="ml-0.5 text-red-500">*</span>
+              Model<span className="ml-0.5 text-destructive">*</span>
             </label>
             {knownModels.length > 0 ? (
               <select
@@ -176,7 +171,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
                 data-testid="agent-model"
                 value={modelId}
                 onChange={(event) => setConfig("model", event.target.value || undefined)}
-                className={inputClass}
+                className={controlClass}
               >
                 {/* No model is preselected — the user must choose. */}
                 <option value="">Set a model…</option>
@@ -194,11 +189,11 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
                 value={modelId}
                 placeholder="Type the model id"
                 onChange={(event) => setConfig("model", event.target.value || undefined)}
-                className={inputClass}
+                className={controlClass}
               />
             )}
             {assignedProfile && !config.model && (
-              <p className="mt-1 text-[11px] text-neutral-500">
+              <p className="mt-1 text-[11px] text-muted-foreground">
                 From “{assignedProfile.name}”. Choosing here overrides it for this step only.
               </p>
             )}
@@ -207,7 +202,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
           <div className="mb-3">
             <label
               htmlFor="agent-effort"
-              className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
             >
               Effort
             </label>
@@ -216,7 +211,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
               data-testid="agent-effort"
               value={(config.effort as string) ?? ""}
               onChange={(event) => setConfig("effort", event.target.value || undefined)}
-              className={inputClass}
+              className={controlClass}
             >
               <option value="">—</option>
               {EFFORT_LEVELS.map((level) => (
@@ -229,7 +224,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
           </div>
 
           <fieldset>
-            <legend className="mb-1 text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            <legend className="mb-1 text-xs font-medium text-muted-foreground">
               Tools this agent may use
             </legend>
             <div className="flex flex-wrap gap-2">
@@ -251,7 +246,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
                 </label>
               ))}
             </div>
-            <p className="mt-1 text-[11px] text-neutral-500">
+            <p className="mt-1 text-[11px] text-muted-foreground">
               Read-only roles need no Write, Edit, or Bash.
             </p>
           </fieldset>
@@ -271,7 +266,7 @@ export function NodeConfigPanel({ profiles }: { profiles: AgentProfile[] }) {
         type="button"
         data-testid="delete-node"
         onClick={() => removeNode(node.id)}
-        className="mt-2 w-full rounded border border-red-300 px-2 py-1 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/40"
+        className="mt-2 w-full rounded border border-red-300 px-2 py-1 text-sm text-destructive hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/40"
       >
         Remove this step
       </button>
