@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { listSecretNames } from "@/data/secrets";
 import { SecretsForm } from "./SecretsForm";
 
@@ -18,14 +17,8 @@ export default async function SecretsPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <header className="mb-4 flex items-baseline gap-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
-        <h1 className="text-lg font-semibold">Secrets</h1>
-        <Link href="/runs" className="text-xs text-sky-600 hover:underline">
-          runs
-        </Link>
-        <Link href="/" className="text-xs text-sky-600 hover:underline">
-          board
-        </Link>
+      <header className="mb-4 border-b pb-3">
+        <h1 className="text-lg font-semibold tracking-tight">Secrets</h1>
       </header>
 
       <p className="mb-4 text-xs text-neutral-500">

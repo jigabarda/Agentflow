@@ -42,15 +42,7 @@ export default async function RunsPage({
   return (
     <main className="mx-auto max-w-5xl p-6">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-lg font-semibold">Runs</h1>
-          <Link href="/" className="text-xs text-sky-600 hover:underline">
-            board
-          </Link>
-          <Link href="/settings/secrets" className="text-xs text-sky-600 hover:underline">
-            secrets
-          </Link>
-        </div>
+        <h1 className="text-lg font-semibold tracking-tight">Runs</h1>
         <p data-testid="runs-totals" className="text-xs text-neutral-500">
           {totals.tokensToday.toLocaleString()} tokens today
         </p>
