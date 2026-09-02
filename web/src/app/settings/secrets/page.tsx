@@ -21,7 +21,7 @@ export default async function SecretsPage() {
         <h1 className="text-lg font-semibold tracking-tight">Secrets</h1>
       </header>
 
-      <p className="mb-4 text-xs text-neutral-500">
+      <p className="mb-4 text-xs text-muted-foreground">
         Integration tokens, encrypted at rest. Once saved, a value is never shown again — you can
         replace it or remove it, but not read it back. AI model keys live on each pipeline instead,
         in the editor&apos;s Connections panel.

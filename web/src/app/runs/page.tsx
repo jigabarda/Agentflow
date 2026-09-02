@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { costFraction } from "@agentflow/core";
 import { listRuns, runTotals } from "@/data/runHistory";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 const STATUS_TONE: Record<string, string> = {
-  queued: "bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
-  running: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
-  awaiting_approval: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300",
-  succeeded: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  failed: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-  canceled: "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400",
+  queued: "border-transparent bg-muted text-muted-foreground",
+  running: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  awaiting_approval: "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300",
+  succeeded: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  failed: "border-destructive/30 bg-destructive/10 text-destructive",
+  canceled: "border-transparent bg-muted text-muted-foreground",
 };
 
 /**
@@ -41,9 +43,9 @@ export default async function RunsPage({
 
   return (
     <main className="mx-auto max-w-5xl p-6">
-      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
+      <header className="mb-4 flex flex-wrap items-baseline justify-between gap-3 border-b pb-3">
         <h1 className="text-lg font-semibold tracking-tight">Runs</h1>
-        <p data-testid="runs-totals" className="text-xs text-neutral-500">
+        <p data-testid="runs-totals" className="text-xs text-muted-foreground">
           {totals.tokensToday.toLocaleString()} tokens today
         </p>
       </header>
@@ -56,12 +58,12 @@ export default async function RunsPage({
               key={option}
               href={option === "all" ? "/runs" : `/runs?status=${option}`}
               data-testid={`runs-filter-${option}`}
-              className={[
-                "rounded px-2 py-0.5 text-xs",
+              className={cn(
+                "rounded-md px-2 py-1 text-xs transition-colors",
                 active
-                  ? "bg-sky-600 text-white"
-                  : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300",
-              ].join(" ")}
+                  ? "bg-primary font-medium text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
             >
               {option.replace("_", " ")}
               {totals.byStatus[option] ? ` (${totals.byStatus[option]})` : ""}
@@ -71,7 +73,7 @@ export default async function RunsPage({
       </nav>
 
       {runs.length === 0 ? (
-        <p data-testid="runs-empty" className="text-sm text-neutral-500">
+        <p data-testid="runs-empty" className="text-sm text-muted-foreground">
           No runs{filter ? ` with status "${filter}"` : " yet"}. Drag a card into an automated
           column to start one.
         </p>
@@ -85,17 +87,17 @@ export default async function RunsPage({
                 key={run.id}
                 data-testid={`run-row-${run.id}`}
                 data-run-status={run.status}
-                className="flex flex-wrap items-center gap-2 rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-900"
+                className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-sm shadow-xs transition-shadow hover:shadow-md"
               >
-                <span className={`rounded px-1 text-[10px] ${STATUS_TONE[run.status] ?? ""}`}>
+                <Badge className={cn("font-normal", STATUS_TONE[run.status] ?? "")}>
                   {run.status.replace("_", " ")}
-                </span>
+                </Badge>
 
                 <Link href={`/runs/${run.id}`} className="min-w-0 flex-1 truncate hover:underline">
                   {run.taskTitle ?? run.pipelineName}
                 </Link>
 
-                <span className="text-[11px] text-neutral-500">
+                <span className="text-[11px] text-muted-foreground">
                   {run.stepsDone}/{run.stepsTotal} steps
                 </span>
 
@@ -106,16 +108,18 @@ export default async function RunsPage({
                       ? `Limit ${run.maxTokensPerRun.toLocaleString()} tokens`
                       : "This pipeline has no token limit"
                   }
-                  className={[
+                  className={cn(
                     "text-[11px]",
-                    fraction !== null && fraction >= 0.9 ? "text-amber-600" : "text-neutral-500",
-                  ].join(" ")}
+                    fraction !== null && fraction >= 0.9
+                      ? "font-medium text-amber-600"
+                      : "text-muted-foreground",
+                  )}
                 >
                   {run.tokensUsed.toLocaleString()}
                   {run.maxTokensPerRun ? ` / ${run.maxTokensPerRun.toLocaleString()}` : ""} tokens
                 </span>
 
-                <span className="text-[11px] text-neutral-400">
+                <span className="text-[11px] text-muted-foreground/70">
                   {run.createdAt.toLocaleString(undefined, {
                     month: "short",
                     day: "numeric",
@@ -125,7 +129,7 @@ export default async function RunsPage({
                 </span>
 
                 {run.error && (
-                  <span className="w-full truncate text-[11px] text-red-600" title={run.error}>
+                  <span className="w-full truncate text-[11px] text-destructive" title={run.error}>
                     {run.error}
                   </span>
                 )}
