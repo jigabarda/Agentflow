@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,7 +21,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {/* Tooltips are used across the board and the editor; the provider has
+            to sit above all of them. `delayDuration` is short because these
+            label icons the user is already pointing at. */}
+        <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+      </body>
     </html>
   );
 }
