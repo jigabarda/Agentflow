@@ -1,10 +1,7 @@
 "use client";
 
 import { coerceFieldValue, formatFieldValue, type FieldDescriptor } from "@/nodes/fields";
-
-const inputClass =
-  "w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 " +
-  "focus:border-sky-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100";
+import { controlClass } from "./controls";
 
 /** One generated form control, driven entirely by the node's Zod schema. */
 export function ConfigField({
@@ -21,12 +18,9 @@ export function ConfigField({
 
   return (
     <div className="mb-3">
-      <label
-        htmlFor={id}
-        className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400"
-      >
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-muted-foreground">
         {field.label}
-        {field.required && <span className="ml-0.5 text-red-500">*</span>}
+        {field.required && <span className="ml-0.5 text-destructive">*</span>}
       </label>
 
       {field.kind === "boolean" ? (
@@ -42,7 +36,7 @@ export function ConfigField({
           id={id}
           value={shown}
           onChange={(event) => onChange(coerceFieldValue(field, event.target.value))}
-          className={inputClass}
+          className={controlClass}
         >
           <option value="">—</option>
           {(field.options ?? []).map((option) => (
@@ -57,7 +51,7 @@ export function ConfigField({
           rows={4}
           value={shown}
           onChange={(event) => onChange(coerceFieldValue(field, event.target.value))}
-          className={`${inputClass} font-mono text-xs`}
+          className={`${controlClass} font-mono text-xs`}
         />
       ) : (
         <input
@@ -65,13 +59,13 @@ export function ConfigField({
           type={field.kind === "number" ? "number" : "text"}
           value={shown}
           onChange={(event) => onChange(coerceFieldValue(field, event.target.value))}
-          className={inputClass}
+          className={controlClass}
           placeholder={field.kind === "string-list" ? "comma, separated" : undefined}
         />
       )}
 
       {field.description && (
-        <p className="mt-1 text-[11px] text-neutral-500">{field.description}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">{field.description}</p>
       )}
     </div>
   );

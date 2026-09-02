@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { TODAY_BUCKET_LABELS, TODAY_BUCKET_ORDER } from "@agentflow/core";
 import { todayItems } from "@/data/today";
 import { TodayList } from "./TodayList";
@@ -24,14 +23,9 @@ export default async function TodayPage() {
 
   return (
     <main className="mx-auto max-w-3xl p-6">
-      <header className="mb-6 flex flex-wrap items-baseline justify-between gap-2 border-b border-neutral-200 pb-3 dark:border-neutral-800">
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-lg font-semibold">Today</h1>
-          <Link href="/" className="text-xs text-sky-600 hover:underline">
-            board
-          </Link>
-        </div>
-        <p data-testid="today-summary" className="text-xs text-neutral-500">
+      <header className="mb-6 flex flex-wrap items-baseline justify-between gap-2 border-b pb-3">
+        <h1 className="text-lg font-semibold tracking-tight">Today</h1>
+        <p data-testid="today-summary" className="text-xs text-muted-foreground">
           {items.length === 0
             ? "Nothing needs you right now."
             : `${items.length} item${items.length === 1 ? "" : "s"}${
@@ -41,7 +35,7 @@ export default async function TodayPage() {
       </header>
 
       {counts.length === 0 ? (
-        <p data-testid="today-empty" className="text-sm text-neutral-500">
+        <p data-testid="today-empty" className="text-sm text-muted-foreground">
           Nothing is due, running, or waiting on you. Anything you add with a due date shows up
           here.
         </p>
