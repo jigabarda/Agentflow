@@ -1,6 +1,11 @@
 "use client";
 
+import { AlertCircle, Check, CircleDashed, Cog, Minus, PauseCircle } from "lucide-react";
+import type { ComponentType } from "react";
 import type { RunSummary } from "@/data/runSummaries";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * The live run badge on a card face.
@@ -10,12 +15,21 @@ import type { RunSummary } from "@/data/runSummaries";
  */
 
 const TONE: Record<string, string> = {
-  queued: "bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
-  running: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
-  awaiting_approval: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300",
-  succeeded: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  failed: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-  canceled: "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400",
+  queued: "border-transparent bg-muted text-muted-foreground",
+  running: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  awaiting_approval: "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300",
+  succeeded: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  failed: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300",
+  canceled: "border-transparent bg-muted text-muted-foreground",
+};
+
+const ICON: Record<string, ComponentType<{ className?: string }>> = {
+  queued: CircleDashed,
+  running: Cog,
+  awaiting_approval: PauseCircle,
+  succeeded: Check,
+  failed: AlertCircle,
+  canceled: Minus,
 };
 
 function label(run: RunSummary): string {
@@ -38,25 +52,19 @@ function label(run: RunSummary): string {
   }
 }
 
-const ICON: Record<string, string> = {
-  queued: "•",
-  running: "⚙",
-  awaiting_approval: "⏸",
-  succeeded: "✓",
-  failed: "✗",
-  canceled: "—",
-};
-
 export function RunBadge({ run }: { run: RunSummary }) {
+  const Icon = ICON[run.status] ?? CircleDashed;
+
   return (
-    <span
+    <Badge
       data-testid={`run-badge-${run.taskId}`}
       data-run-status={run.status}
       title={run.error ?? undefined}
-      className={`rounded px-1 text-[10px] ${TONE[run.status] ?? TONE.queued}`}
+      className={cn("gap-1 font-normal", TONE[run.status] ?? TONE.queued)}
     >
-      {ICON[run.status] ?? "•"} {label(run)}
-    </span>
+      <Icon className={cn("size-3", run.status === "running" && "animate-spin")} aria-hidden />
+      {label(run)}
+    </Badge>
   );
 }
 
@@ -74,9 +82,9 @@ export function ApprovalControls({
   onDecide: (decision: "approve" | "reject") => void;
 }) {
   return (
-    <div className="mt-1 flex gap-1" data-testid={`approval-${run.taskId}`}>
-      <button
-        type="button"
+    <div className="flex gap-1.5 pt-0.5" data-testid={`approval-${run.taskId}`}>
+      <Button
+        size="sm"
         data-testid={`approve-${run.taskId}`}
         // The card is draggable; a click here must not start a drag.
         onPointerDown={(event) => event.stopPropagation()}
@@ -84,22 +92,23 @@ export function ApprovalControls({
           event.stopPropagation();
           onDecide("approve");
         }}
-        className="rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-emerald-700"
+        className="h-6 bg-emerald-600 px-2 text-[11px] text-white hover:bg-emerald-700"
       >
         Approve
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
         data-testid={`reject-${run.taskId}`}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
           onDecide("reject");
         }}
-        className="rounded border border-neutral-300 px-2 py-0.5 text-[11px] text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        className="h-6 px-2 text-[11px]"
       >
         Reject
-      </button>
+      </Button>
     </div>
   );
 }

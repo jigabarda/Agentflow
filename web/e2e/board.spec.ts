@@ -252,3 +252,28 @@ test("filtering narrows the board and is captured in the URL", async ({ page }) 
   await page.getByTestId("clear-filters").click();
   await expect(page.locator(`[data-task-title="Hidden ${stamp}"]`)).toBeVisible();
 });
+
+test("every surface is reachable from the nav", async ({ page }) => {
+  // Before this existed, the board, Today, Runs, Pipelines and Secrets were
+  // only reachable by typing a URL — most of the product was undiscoverable.
+  await page.goto("/");
+  await expect(page.getByTestId("app-nav")).toBeVisible();
+
+  for (const [testid, heading] of [
+    ["nav-today", "Today"],
+    ["nav-runs", "Runs"],
+    ["nav-secrets", "Secrets"],
+  ] as const) {
+    await page.getByTestId(testid).click();
+    await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+  }
+
+  await page.getByTestId("nav-board").click();
+  await expect(page.locator('[data-column-kind="backlog"]').first()).toBeVisible();
+});
+
+test("the nav marks where you are", async ({ page }) => {
+  await page.goto("/today");
+  await expect(page.getByTestId("nav-today")).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("nav-runs")).not.toHaveAttribute("aria-current", "page");
+});

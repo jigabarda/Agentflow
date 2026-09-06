@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/data/client";
 import { listLogs } from "@/data/runs";
+import { Badge } from "@/components/ui/badge";
 import { RunLive } from "./RunLive";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
   return (
     <main className="mx-auto max-w-4xl p-6">
-      <nav className="mb-4 text-xs text-neutral-500">
+      <nav className="mb-4 text-xs text-muted-foreground">
         <Link href={run.task ? `/?board=${run.task.boardId}` : "/"} className="hover:underline">
           ← Board
         </Link>
@@ -40,26 +41,23 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
         {run.task && (
           <>
             {" · "}
-            <span className="text-neutral-700 dark:text-neutral-300">{run.task.title}</span>
+            <span className="text-foreground">{run.task.title}</span>
           </>
         )}
       </nav>
 
       <header className="mb-6 flex flex-wrap items-baseline gap-3">
-        <h1 className="text-lg font-semibold">{run.pipeline.name}</h1>
-        <span
-          data-testid="run-status"
-          className="rounded bg-neutral-100 px-2 py-0.5 text-xs dark:bg-neutral-800"
-        >
+        <h1 className="text-lg font-semibold tracking-tight">{run.pipeline.name}</h1>
+        <Badge variant="secondary" data-testid="run-status" className="font-normal">
           {run.status}
-        </span>
+        </Badge>
         <Link
           href={`/pipelines/${run.pipeline.id}`}
-          className="text-xs text-sky-600 hover:underline"
+          className="text-xs text-primary hover:underline"
         >
           open pipeline
         </Link>
-        <span data-testid="run-tokens" className="text-xs text-neutral-500">
+        <span data-testid="run-tokens" className="text-xs text-muted-foreground">
           {run.tokensUsed.toLocaleString()} tokens
           {run.pipeline.maxTokensPerRun
             ? ` of ${run.pipeline.maxTokensPerRun.toLocaleString()}`
@@ -81,7 +79,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       {run.error && (
         <p
           data-testid="run-error"
-          className="mb-6 rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+          className="mb-6 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
         >
           {run.error}
         </p>

@@ -13,14 +13,14 @@ export function NodePalette() {
   const grouped = nodeTypesByCategory();
 
   return (
-    <aside className="w-56 shrink-0 overflow-y-auto border-r border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+    <aside className="w-56 shrink-0 overflow-y-auto border-r border-border bg-muted/40 p-3">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Add a step
       </h2>
 
       {[...grouped.entries()].map(([category, types]) => (
         <section key={category} className="mb-4">
-          <h3 className="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-400">
+          <h3 className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
             {CATEGORY_LABELS[category as NodeCategory]}
           </h3>
           <ul className="space-y-1">
@@ -34,11 +34,11 @@ export function NodePalette() {
                     // Stagger new nodes so they never land exactly on top of each other.
                     addNode(type.id, { x: 80 + (nodeCount % 4) * 60, y: 80 + nodeCount * 30 })
                   }
-                  className="w-full rounded border border-neutral-200 bg-white px-2 py-1.5 text-left text-sm text-neutral-800 hover:border-sky-400 hover:bg-sky-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  className="w-full rounded border border-border bg-card px-2 py-1.5 text-left text-sm transition-colors hover:border-ring/40 hover:bg-accent"
                 >
                   <span>{type.label}</span>
                   {type.phase === "later" && (
-                    <span className="ml-1 text-[10px] text-neutral-400">soon</span>
+                    <span className="ml-1 text-[10px] text-muted-foreground/70">soon</span>
                   )}
                 </button>
               </li>

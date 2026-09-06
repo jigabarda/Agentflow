@@ -35,22 +35,22 @@ export function FlowNodeView({ id, data, selected }: NodeProps<FlowNodeType>) {
       data-testid={`node-${id}`}
       data-node-type={data.typeId}
       className={[
-        "min-w-52 rounded-md border border-l-4 bg-white px-3 py-2 shadow-sm",
-        "dark:border-neutral-700 dark:bg-neutral-900",
+        "min-w-52 rounded-md border border-l-4 bg-card px-3 py-2 shadow-sm",
+        "",
         accent,
-        selected ? "ring-2 ring-sky-500" : "",
+        selected ? "ring-2 ring-ring" : "",
         issues.length > 0 ? "border-red-500 dark:border-red-500" : "",
       ].join(" ")}
     >
       {!isTrigger && <Handle type="target" position={Position.Left} />}
 
-      <div className="text-[11px] uppercase tracking-wide text-neutral-500">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
         {type?.label ?? data.typeId}
       </div>
-      <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{data.label}</div>
+      <div className="text-sm font-medium text-foreground">{data.label}</div>
 
       {issues.length > 0 && (
-        <div data-testid={`node-issue-${id}`} className="mt-1 text-xs font-medium text-red-600">
+        <div data-testid={`node-issue-${id}`} className="mt-1 text-xs font-medium text-destructive">
           {/* The most common case by far: an agent with no model chosen. */}
           {issues[0]!.code === "agent-missing-model" ? "Set a model" : issues[0]!.message}
         </div>
@@ -68,7 +68,7 @@ export function FlowNodeView({ id, data, selected }: NodeProps<FlowNodeType>) {
             // Spread the handles down the right edge so both are reachable.
             style={{ top: `${((index + 1) / (branches.length + 1)) * 100}%` }}
           >
-            <span className="pointer-events-none absolute left-3 -top-2 whitespace-nowrap text-[9px] text-neutral-500">
+            <span className="pointer-events-none absolute left-3 -top-2 whitespace-nowrap text-[9px] text-muted-foreground">
               {branch}
             </span>
           </Handle>

@@ -88,25 +88,25 @@ function EditorInner({
   );
 
   return (
-    <div className="flex h-screen flex-col bg-white dark:bg-neutral-900">
-      <header className="flex items-center gap-3 border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
+    <div className="flex h-screen flex-col bg-background">
+      <header className="flex items-center gap-3 border-b border-border px-4 py-2 ">
         <input
           data-testid="pipeline-name"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          className="rounded border border-transparent px-2 py-1 text-sm font-semibold hover:border-neutral-300 focus:border-sky-500 focus:outline-none dark:bg-neutral-900 dark:hover:border-neutral-700"
+          className="rounded-md border border-transparent px-2 py-1 text-sm font-semibold outline-none transition-[color,box-shadow] hover:border-input focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
         />
 
         {issues.length > 0 && (
-          <span data-testid="graph-issues" className="text-xs font-medium text-red-600">
+          <span data-testid="graph-issues" className="text-xs font-medium text-destructive">
             {issues.length} problem{issues.length === 1 ? "" : "s"} — {issues[0]!.message}
           </span>
         )}
 
         <div className="ml-auto flex items-center gap-2">
-          {dirty && <span className="text-xs text-neutral-500">Unsaved changes</span>}
+          {dirty && <span className="text-xs text-muted-foreground">Unsaved changes</span>}
           {saveError && (
-            <span data-testid="save-error" className="text-xs text-red-600">
+            <span data-testid="save-error" className="text-xs text-destructive">
               {saveError}
             </span>
           )}
@@ -115,7 +115,7 @@ function EditorInner({
             data-testid="save-pipeline"
             disabled={saving}
             onClick={() => void save()}
-            className="rounded bg-sky-600 px-3 py-1 text-sm text-white disabled:opacity-40"
+            className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -143,8 +143,8 @@ function EditorInner({
           </ReactFlow>
         </main>
 
-        <div className="flex w-72 shrink-0 flex-col border-l border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950">
-          <nav className="flex border-b border-neutral-200 text-xs dark:border-neutral-800">
+        <div className="flex w-72 shrink-0 flex-col border-l bg-muted/40">
+          <nav className="flex border-b border-border text-xs ">
             {(["agents", "connections", "variables"] as SideTab[]).map((item) => (
               <button
                 key={item}
@@ -154,7 +154,7 @@ function EditorInner({
                 className={`flex-1 px-2 py-2 capitalize ${
                   tab === item
                     ? "border-b-2 border-sky-500 font-medium text-sky-700 dark:text-sky-400"
-                    : "text-neutral-500"
+                    : "text-muted-foreground"
                 }`}
               >
                 {item}

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * The moving parts of the run page.
@@ -26,11 +28,11 @@ export interface LogView {
 }
 
 const STEP_TONE: Record<string, string> = {
-  pending: "text-neutral-400",
-  running: "text-sky-600",
-  succeeded: "text-emerald-600",
-  failed: "text-red-600",
-  skipped: "text-neutral-400",
+  pending: "text-muted-foreground",
+  running: "text-sky-600 dark:text-sky-400",
+  succeeded: "text-emerald-600 dark:text-emerald-400",
+  failed: "text-destructive",
+  skipped: "text-muted-foreground/60",
 };
 
 const STEP_ICON: Record<string, string> = {
@@ -42,10 +44,10 @@ const STEP_ICON: Record<string, string> = {
 };
 
 const LOG_TONE: Record<string, string> = {
-  debug: "text-neutral-400",
-  info: "text-neutral-600 dark:text-neutral-300",
-  warn: "text-amber-600",
-  error: "text-red-600",
+  debug: "text-muted-foreground/70",
+  info: "text-foreground/80",
+  warn: "text-amber-600 dark:text-amber-400",
+  error: "text-destructive",
 };
 
 const REFRESH_MS = 1000;
@@ -96,35 +98,39 @@ export function RunLive({
     <>
       {canRetry && (
         <section className="mb-6">
-          <button
-            type="button"
+          <Button
+            size="sm"
             data-testid="run-retry"
             disabled={retrying}
             onClick={() => void retry()}
-            className="rounded bg-sky-600 px-3 py-1 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+            className="h-7 text-xs"
           >
             Retry from the failed step
-          </button>
-          <p className="mt-1 text-[11px] text-neutral-500">
+          </Button>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
             Everything that already succeeded is kept, so this re-runs the step that broke and
             nothing before it.
           </p>
-          {retryError && <p className="mt-1 text-[11px] text-red-600">{retryError}</p>}
+          {retryError && <p className="mt-1 text-[11px] text-destructive">{retryError}</p>}
         </section>
       )}
 
       <section className="mb-6">
-        <h2 className="mb-2 text-xs font-medium text-neutral-600 dark:text-neutral-400">Steps</h2>
+        <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Steps
+        </h2>
         <ol data-testid="run-steps" className="space-y-1">
           {steps.map((step) => (
             <li key={step.id} className="flex items-baseline gap-2 text-sm">
               <span className={STEP_TONE[step.status] ?? ""}>{STEP_ICON[step.status] ?? "○"}</span>
               <span className="font-mono text-xs">{step.nodeId}</span>
-              <span className={`text-xs ${STEP_TONE[step.status] ?? ""}`}>{step.status}</span>
-              {step.error && <span className="text-xs text-red-600">{step.error}</span>}
+              <span className={cn("text-xs", STEP_TONE[step.status])}>{step.status}</span>
+              {step.error && <span className="text-xs text-destructive">{step.error}</span>}
             </li>
           ))}
-          {steps.length === 0 && <li className="text-xs text-neutral-500">Not started yet.</li>}
+          {steps.length === 0 && (
+            <li className="text-xs text-muted-foreground">Not started yet.</li>
+          )}
         </ol>
       </section>
 
@@ -132,7 +138,7 @@ export function RunLive({
         <button
           type="button"
           onClick={() => setShowLogs((open) => !open)}
-          className="mb-2 text-xs font-medium text-neutral-600 hover:underline dark:text-neutral-400"
+          className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase hover:underline"
         >
           {showLogs ? "▾" : "▸"} Logs ({logs.length})
         </button>
@@ -140,7 +146,7 @@ export function RunLive({
         {showLogs && (
           <ol
             data-testid="run-logs"
-            className="max-h-96 space-y-0.5 overflow-y-auto rounded bg-neutral-50 p-2 font-mono text-[11px] dark:bg-neutral-950"
+            className="max-h-96 space-y-0.5 overflow-y-auto rounded-lg border bg-muted/40 p-2 font-mono text-[11px]"
           >
             {logs.map((entry) => (
               <li key={entry.id} className={LOG_TONE[entry.level] ?? ""}>
@@ -148,7 +154,7 @@ export function RunLive({
                 {entry.message}
               </li>
             ))}
-            {logs.length === 0 && <li className="text-neutral-500">No output yet.</li>}
+            {logs.length === 0 && <li className="text-muted-foreground">No output yet.</li>}
           </ol>
         )}
       </section>

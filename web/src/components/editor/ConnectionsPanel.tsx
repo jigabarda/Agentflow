@@ -3,10 +3,7 @@
 import { useState } from "react";
 import type { CredentialState } from "@agentflow/core";
 import { PROVIDERS, getProvider } from "@/nodes/models";
-
-const inputClass =
-  "w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 " +
-  "focus:border-sky-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100";
+import { controlClass } from "./controls";
 
 /**
  * Connections — the API key for each provider THIS pipeline uses.
@@ -66,7 +63,7 @@ export function ConnectionsPanel({
 
   return (
     <div data-testid="connections-panel" className="p-3">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         API keys for this pipeline
       </h3>
 
@@ -81,16 +78,16 @@ export function ConnectionsPanel({
 
       <ul className="mb-4 space-y-1">
         {credentials.length === 0 && (
-          <li className="text-xs text-neutral-500">No connections yet.</li>
+          <li className="text-xs text-muted-foreground">No connections yet.</li>
         )}
         {credentials.map((credential) => (
           <li
             key={credential.provider}
             data-testid={`credential-${credential.provider}`}
-            className="rounded border border-neutral-200 bg-white px-2 py-1 text-xs dark:border-neutral-800 dark:bg-neutral-900"
+            className="rounded border border-border bg-background px-2 py-1 text-xs"
           >
             <span className="font-medium">{credential.provider}</span>
-            <span className="ml-1 text-neutral-500">
+            <span className="ml-1 text-muted-foreground">
               {credential.hasKey ? "key set" : credential.baseUrl ? credential.baseUrl : "not set"}
             </span>
           </li>
@@ -101,7 +98,7 @@ export function ConnectionsPanel({
         data-testid="credential-provider"
         value={provider}
         onChange={(event) => setProvider(event.target.value)}
-        className={`${inputClass} mb-2`}
+        className={`${controlClass} mb-2`}
       >
         <option value="">Pick a provider…</option>
         {PROVIDERS.map((item) => (
@@ -111,7 +108,7 @@ export function ConnectionsPanel({
         ))}
       </select>
 
-      {selected?.hint && <p className="mb-2 text-[11px] text-neutral-500">{selected.hint}</p>}
+      {selected?.hint && <p className="mb-2 text-[11px] text-muted-foreground">{selected.hint}</p>}
 
       {keyless ? (
         <input
@@ -119,7 +116,7 @@ export function ConnectionsPanel({
           value={baseUrl}
           onChange={(event) => setBaseUrl(event.target.value)}
           placeholder="http://localhost:11434"
-          className={`${inputClass} mb-2`}
+          className={`${controlClass} mb-2`}
         />
       ) : (
         <input
@@ -129,23 +126,23 @@ export function ConnectionsPanel({
           onChange={(event) => setApiKey(event.target.value)}
           placeholder="Paste the API key"
           disabled={!provider}
-          className={`${inputClass} mb-2`}
+          className={`${controlClass} mb-2`}
         />
       )}
 
-      {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
 
       <button
         type="button"
         data-testid="save-credential"
         disabled={!canSubmit}
         onClick={save}
-        className="w-full rounded bg-sky-600 px-2 py-1 text-sm text-white disabled:opacity-40"
+        className="w-full rounded bg-primary px-2 py-1 text-sm text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
       >
         Save connection
       </button>
 
-      <p className="mt-2 text-[11px] text-neutral-500">
+      <p className="mt-2 text-[11px] text-muted-foreground">
         Stored encrypted, and never shown again after saving.
       </p>
     </div>

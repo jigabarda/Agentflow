@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import Link from "next/link";
 import type { Board as BoardType, Task } from "@agentflow/core";
 import {
   DndContext,
@@ -11,6 +10,10 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { Search, TriangleAlert, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { Column } from "./Column";
 import { TaskDrawer } from "./TaskDrawer";
 import { useBoardStore } from "./boardStore";
@@ -224,51 +227,61 @@ export function Board({ board, tasks }: { board: BoardType; tasks: Task[] }) {
   const drawerTask = allTasks.find((task) => task.id === drawerTaskId);
 
   return (
-    <div className="flex h-screen flex-col bg-white dark:bg-neutral-900">
-      <header className="flex items-center gap-3 border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
-        <h1 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          {board.name}
-        </h1>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex shrink-0 items-center gap-3 border-b px-4 py-2">
+        <h1 className="text-sm font-semibold tracking-tight">{board.name}</h1>
 
-        <input
-          ref={filterInputRef}
-          data-testid="board-filter"
-          value={filters.text}
-          onChange={(event) => applyFilters({ ...filters, text: event.target.value })}
-          placeholder="Filter cards…  (press /)"
-          className="w-64 rounded border border-neutral-300 px-2 py-1 text-sm focus:border-sky-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900"
-        />
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            ref={filterInputRef}
+            data-testid="board-filter"
+            value={filters.text}
+            onChange={(event) => applyFilters({ ...filters, text: event.target.value })}
+            placeholder="Filter cards…  (press /)"
+            aria-label="Filter cards"
+            className="h-8 w-64 pl-7 text-sm"
+          />
+        </div>
 
         {isFiltering(filters) && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             data-testid="clear-filters"
             onClick={() => applyFilters(EMPTY_FILTERS)}
-            className="text-xs text-neutral-500 underline"
+            className="h-7 gap-1 px-2 text-xs text-muted-foreground"
           >
+            <X className="size-3" aria-hidden />
             clear
-          </button>
+          </Button>
         )}
-
-        <Link href="/pipelines" className="ml-auto text-xs text-sky-600 underline">
-          Pipelines
-        </Link>
       </header>
 
       {(rejection || warning) && (
         <div
           data-testid={rejection ? "move-rejected" : "move-warning"}
           role="status"
-          className={`flex items-center gap-2 px-4 py-1 text-xs ${
+          className={cn(
+            "flex shrink-0 items-center gap-2 border-b px-4 py-1.5 text-xs",
             rejection
-              ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-              : "bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
-          }`}
+              ? "border-destructive/20 bg-destructive/10 text-destructive"
+              : "border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-300",
+          )}
         >
+          <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
           <span>{rejection ?? warning}</span>
-          <button type="button" onClick={dismissMessages} className="underline">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={dismissMessages}
+            className="ml-auto h-6 px-2 text-xs"
+          >
             dismiss
-          </button>
+          </Button>
         </div>
       )}
 

@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /**
  * Adding and rotating tokens.
@@ -70,7 +75,7 @@ export function SecretsForm({ initialNames }: { initialNames: string[] }) {
     <>
       <ul data-testid="secrets-list" className="mb-4 space-y-1">
         {names.length === 0 && (
-          <li data-testid="secrets-empty" className="text-sm text-neutral-500">
+          <li data-testid="secrets-empty" className="text-sm text-muted-foreground">
             Nothing stored yet.
           </li>
         )}
@@ -78,18 +83,22 @@ export function SecretsForm({ initialNames }: { initialNames: string[] }) {
           <li
             key={stored}
             data-testid={`secret-${stored}`}
-            className="flex items-center gap-2 rounded border border-neutral-200 bg-white px-2 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-900"
+            className="flex items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-sm"
           >
             <span className="font-mono text-xs">{stored}</span>
-            <span className="text-[11px] text-neutral-500">set</span>
-            <button
-              type="button"
+            <Badge variant="secondary" className="font-normal">
+              set
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
               data-testid={`secret-remove-${stored}`}
               onClick={() => void remove(stored)}
-              className="ml-auto rounded px-2 py-0.5 text-[11px] text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+              className="ml-auto h-6 gap-1 px-2 text-[11px] text-muted-foreground"
             >
+              <Trash2 className="size-3" aria-hidden />
               Remove
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
@@ -118,24 +127,30 @@ export function SecretsForm({ initialNames }: { initialNames: string[] }) {
           ))}
         </datalist>
 
-        <input
-          data-testid="secret-value"
-          type="password"
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          placeholder="Paste the token"
-          autoComplete="off"
-          className="w-full rounded border border-neutral-300 bg-white px-2 py-1 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900"
-        />
+        <div className="space-y-1.5">
+          <Label htmlFor="secret-value" className="text-xs text-muted-foreground">
+            Value — shown once, never again
+          </Label>
+          <Input
+            id="secret-value"
+            data-testid="secret-value"
+            type="password"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder="Paste the token"
+            autoComplete="off"
+            className="font-mono text-sm"
+          />
+        </div>
 
-        <button
+        <Button
           type="submit"
+          size="sm"
           data-testid="secret-save"
           disabled={busy || !name.trim() || !value}
-          className="rounded bg-sky-600 px-3 py-1 text-xs font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-neutral-300 dark:disabled:bg-neutral-700"
         >
           Save
-        </button>
+        </Button>
 
         {message && (
           <p
@@ -146,7 +161,7 @@ export function SecretsForm({ initialNames }: { initialNames: string[] }) {
           </p>
         )}
         {error && (
-          <p data-testid="secret-error" className="text-[11px] text-red-600">
+          <p data-testid="secret-error" className="text-[11px] text-destructive">
             {error}
           </p>
         )}
